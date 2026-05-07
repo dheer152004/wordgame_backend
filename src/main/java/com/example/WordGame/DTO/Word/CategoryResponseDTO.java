@@ -1,4 +1,4 @@
-package com.example.WordGame.DTO;
+package com.example.WordGame.DTO.Word;
 
 import lombok.*;
 

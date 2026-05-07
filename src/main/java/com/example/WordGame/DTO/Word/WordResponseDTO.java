@@ -1,21 +1,19 @@
-package com.example.WordGame.DTO;
+package com.example.WordGame.DTO.Word;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.util.List;
-
 @Data
 @Builder
-@NoArgsConstructor
 @AllArgsConstructor
-public class WordDetailResponseDTO {
+@NoArgsConstructor
+public class WordResponseDTO {
+
     private Long id;
     private String word;
     private String meaning;
     private String memeImageUrl;
     private String categoryName;
-    private List<String> examples;
 }
