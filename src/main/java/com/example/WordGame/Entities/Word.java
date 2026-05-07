@@ -1,12 +1,9 @@
 package com.example.WordGame.Entities;
 
 import jakarta.persistence.*;
-import jakarta.persistence.criteria.Fetch;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import lombok.extern.apachecommons.CommonsLog;
-import org.springframework.cglib.core.Local;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
