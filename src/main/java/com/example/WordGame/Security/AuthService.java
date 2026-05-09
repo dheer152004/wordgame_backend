@@ -68,6 +68,6 @@ public class AuthService {
 
         userRepository.save(user);
 
-        return login(new LoginRequest(registerRequest.getEmail(), registerRequest.getPassword()));
+        return login(new LoginRequest(registerRequest.getUsername(), registerRequest.getPassword()));
     }
 }
