@@ -1,7 +1,7 @@
 package com.example.WordGame.Controller;
 
-import com.example.WordGame.DTO.WordResponseDTO;
-import com.example.WordGame.DTO.WordDetailResponseDTO;
+import com.example.WordGame.DTO.Word.WordResponseDTO;
+import com.example.WordGame.DTO.Word.WordDetailResponseDTO;
 import com.example.WordGame.Service.WordService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;

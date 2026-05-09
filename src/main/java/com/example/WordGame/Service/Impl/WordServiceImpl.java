@@ -1,7 +1,7 @@
 package com.example.WordGame.Service.Impl;
 
-import com.example.WordGame.DTO.WordDetailResponseDTO;
-import com.example.WordGame.DTO.WordResponseDTO;
+import com.example.WordGame.DTO.Word.WordDetailResponseDTO;
+import com.example.WordGame.DTO.Word.WordResponseDTO;
 import com.example.WordGame.Entities.Category;
 import com.example.WordGame.Entities.Word;
 import com.example.WordGame.Entities.WordExample;
@@ -11,6 +11,7 @@ import com.example.WordGame.Repository.WordRepo;
 import com.example.WordGame.Service.WordService;
 import com.example.WordGame.exceptions.ResourceNotFoundExecption;
 import lombok.RequiredArgsConstructor;
+import org.modelmapper.ModelMapper;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -27,6 +28,7 @@ public class WordServiceImpl implements WordService {
     private final WordRepo wordRepo;
     private final CategoryRepo categoryRepo;
     private final WordExampleRepo wordExampleRepo;
+    private final ModelMapper modelMapper;
 
     @Override
     public Page<WordResponseDTO> getWordsByCategory(String categoryName, Pageable pageable) {
@@ -39,8 +41,7 @@ public class WordServiceImpl implements WordService {
 
     @Override
     public WordDetailResponseDTO getWordDetail(Long wordId) {
-        // ✅ FIXED: Added () -> before the exception
-        Word word = (Word) wordRepo.findById(wordId)
+        Word word = wordRepo.findById(wordId)
                 .orElseThrow(() -> new ResourceNotFoundExecption("word", "wordId", wordId));
 
         // Get all examples for this word
@@ -48,24 +49,18 @@ public class WordServiceImpl implements WordService {
                 .map(WordExample::getExample)
                 .collect(Collectors.toList());
 
-        return new WordDetailResponseDTO(
-                word.getId(),
-                word.getWord(),
-                word.getMeaning(),
-                word.getMemeImageUrl(),
-                word.getCategory().getName(),
-                examples
-        );
+        // Convert Word to WordDetailResponseDTO using ModelMapper
+        WordDetailResponseDTO responseDTO = modelMapper.map(word, WordDetailResponseDTO.class);
+        responseDTO.setCategoryName(word.getCategory().getName());
+        responseDTO.setExamples(examples);
+
+        return responseDTO;
     }
 
-    // Convert Word to DTO for swipe cards
+    // Convert Word to DTO for swipe cards using ModelMapper
     private WordResponseDTO convertToResponseDTO(Word word) {
-        return new WordResponseDTO(
-                word.getId(),
-                word.getWord(),
-                word.getMeaning(),
-                word.getMemeImageUrl(),
-                word.getCategory().getName()
-        );
+        WordResponseDTO responseDTO = modelMapper.map(word, WordResponseDTO.class);
+        responseDTO.setCategoryName(word.getCategory().getName());
+        return responseDTO;
     }
 }

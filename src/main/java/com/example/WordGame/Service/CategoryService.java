@@ -1,6 +1,6 @@
 package com.example.WordGame.Service;
 
-import com.example.WordGame.DTO.CategoryResponseDTO;
+import com.example.WordGame.DTO.Word.CategoryResponseDTO;
 
 import java.util.List;
 
