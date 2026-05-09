@@ -7,7 +7,6 @@ import com.example.WordGame.Entities.User;
 import com.example.WordGame.Repository.UserRepository;
 import com.example.WordGame.exceptions.ApiException;
 import lombok.RequiredArgsConstructor;
-import org.jspecify.annotations.Nullable;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
