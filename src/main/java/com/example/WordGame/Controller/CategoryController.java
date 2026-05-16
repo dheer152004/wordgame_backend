@@ -1,6 +1,6 @@
 package com.example.WordGame.Controller;
 
-import com.example.WordGame.DTO.Word.CategoryResponseDTO;
+import com.example.WordGame.DTO.CategoryDTO.CategoryResponseDTO;
 import com.example.WordGame.Service.CategoryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
