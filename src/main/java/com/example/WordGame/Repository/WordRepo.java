@@ -10,10 +10,14 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface WordRepo extends JpaRepository<Word, Long> {
     Page<Word> findByCategory(Category category, Pageable pageable);
+    // Add this missing method - IMPORTANT!
+    Optional<Word> findByWord(String word);
+
     long countByCategory(Category category);
 
     // OPTIMIZED: Get random words - only loads what you need
