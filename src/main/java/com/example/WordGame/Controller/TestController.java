@@ -7,7 +7,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/test")
+@RequestMapping(value = "/api/test",produces = "application/json")
 public class TestController {
 
     @GetMapping("/hello")

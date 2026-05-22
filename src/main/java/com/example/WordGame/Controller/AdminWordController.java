@@ -11,7 +11,7 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/admin/words")
+@RequestMapping(value = "/api/admin/words", produces = "application/json")
 @RequiredArgsConstructor
 @CrossOrigin(origins = "*")
 public class AdminWordController {

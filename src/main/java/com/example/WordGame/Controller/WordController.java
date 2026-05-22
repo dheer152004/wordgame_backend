@@ -13,7 +13,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/words")
+@RequestMapping(value = "/api/words", produces = "application/json")
 @RequiredArgsConstructor
 @CrossOrigin(origins = "*")
 public class WordController {

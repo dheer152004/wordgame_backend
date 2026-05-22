@@ -23,7 +23,7 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/quiz")
+@RequestMapping(value = "/api/quiz", produces = "application/json")
 @RequiredArgsConstructor
 @CrossOrigin(origins = "*")
 public class QuizController {

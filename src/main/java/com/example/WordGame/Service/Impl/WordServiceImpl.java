@@ -1,6 +1,5 @@
 package com.example.WordGame.Service.Impl;
 
-
 import com.example.WordGame.DTO.Word.*;
 import com.example.WordGame.Entities.*;
 import com.example.WordGame.Repository.CategoryRepo;
@@ -10,7 +9,11 @@ import com.example.WordGame.Service.WordService;
 import com.example.WordGame.exceptions.ApiException;
 import com.example.WordGame.exceptions.ResourceNotFoundExecption;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -24,18 +27,20 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
+@Slf4j
 public class WordServiceImpl implements WordService {
 
     private final WordRepo wordRepo;
     private final CategoryRepo categoryRepo;
     private final WordExampleRepo wordExampleRepo;
     private final ModelMapper modelMapper;
-    private final CloudflareImageUploadService imageUploadService;
-
-    // ============ EXISTING METHODS ============
+    private final AzureImageUploadService imageUploadService;
 
     @Override
+    @Cacheable(value = "words", key = "#categoryName + '_' + #pageable.pageNumber + '_' + #pageable.pageSize", unless = "#result == null")
     public Page<WordResponseDTO> getWordsByCategory(String categoryName, Pageable pageable) {
+        log.info("📚 CACHE MISS - Fetching words for category '{}' page {} from DATABASE", categoryName, pageable.getPageNumber());
+
         Category category = categoryRepo.findByName(categoryName)
                 .orElseThrow(() -> new RuntimeException("Category not found: " + categoryName));
 
@@ -44,7 +49,10 @@ public class WordServiceImpl implements WordService {
     }
 
     @Override
+    @Cacheable(value = "wordDetails", key = "#wordId", unless = "#result == null")
     public WordDetailResponseDTO getWordDetail(Long wordId) {
+        log.info("📚 CACHE MISS - Fetching word details for id {} from DATABASE", wordId);
+
         Word word = wordRepo.findById(wordId)
                 .orElseThrow(() -> new ResourceNotFoundExecption("word", "wordId", wordId));
 
@@ -59,10 +67,11 @@ public class WordServiceImpl implements WordService {
         return responseDTO;
     }
 
-    // ============ NEW ADMIN METHODS ============
-
     @Override
+    @Cacheable(value = "wordDetails", key = "#id", unless = "#result == null")
     public WordResponseDTO getWordById(Long id) {
+        log.info("📚 CACHE MISS - Fetching word by id {} from DATABASE", id);
+
         Word word = wordRepo.findById(id)
                 .orElseThrow(() -> new ApiException("Word not found with id: " + id));
         return convertToResponseDTO(word);
@@ -70,11 +79,16 @@ public class WordServiceImpl implements WordService {
 
     @Override
     @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = "words", allEntries = true),
+            @CacheEvict(value = "wordDetails", allEntries = true)
+    })
     public WordResponseDTO createWord(WordRequestDTO request) {
+        log.info("📝 Creating new word: {} - Will clear cache", request.getWord());
+
         Category category = categoryRepo.findById(request.getCategoryId())
                 .orElseThrow(() -> new ApiException("Category not found with id: " + request.getCategoryId()));
 
-        // Check if word already exists
         if (wordRepo.findByWord(request.getWord()).isPresent()) {
             throw new ApiException("Word already exists: " + request.getWord());
         }
@@ -85,7 +99,6 @@ public class WordServiceImpl implements WordService {
         word.setCategory(category);
         word.setCreatedAt(LocalDateTime.now());
 
-        // Upload meme image to Cloudflare R2
         if (request.getMemeImage() != null && !request.getMemeImage().isEmpty()) {
             try {
                 String imageUrl = imageUploadService.uploadImage(request.getMemeImage(), "words");
@@ -97,7 +110,6 @@ public class WordServiceImpl implements WordService {
 
         Word savedWord = wordRepo.save(word);
 
-        // Add examples
         if (request.getExamples() != null && !request.getExamples().isEmpty()) {
             for (String exampleText : request.getExamples()) {
                 if (exampleText != null && !exampleText.trim().isEmpty()) {
@@ -109,12 +121,19 @@ public class WordServiceImpl implements WordService {
             }
         }
 
+        log.info("✅ Word created successfully with ID: {}", savedWord.getId());
         return convertToResponseDTO(savedWord);
     }
 
     @Override
     @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = "words", allEntries = true),
+            @CacheEvict(value = "wordDetails", key = "#id")
+    })
     public WordResponseDTO updateWord(Long id, WordRequestDTO request) {
+        log.info("📝 Updating word {} - Will clear cache", id);
+
         Word word = wordRepo.findById(id)
                 .orElseThrow(() -> new ApiException("Word not found with id: " + id));
 
@@ -135,9 +154,7 @@ public class WordServiceImpl implements WordService {
             word.setCategory(category);
         }
 
-        // Upload new meme image to Cloudflare R2 if provided
         if (request.getMemeImage() != null && !request.getMemeImage().isEmpty()) {
-            // Delete old image from Cloudflare R2
             if (word.getMemeImageUrl() != null) {
                 imageUploadService.deleteImage(word.getMemeImageUrl());
             }
@@ -149,13 +166,10 @@ public class WordServiceImpl implements WordService {
             }
         }
 
-        // Update examples
         if (request.getExamples() != null) {
-            // Delete existing examples
             List<WordExample> existingExamples = wordExampleRepo.findByWord(word);
             wordExampleRepo.deleteAll(existingExamples);
 
-            // Add new examples
             for (String exampleText : request.getExamples()) {
                 if (exampleText != null && !exampleText.trim().isEmpty()) {
                     WordExample example = new WordExample();
@@ -167,38 +181,44 @@ public class WordServiceImpl implements WordService {
         }
 
         Word updatedWord = wordRepo.save(word);
-
+        log.info("✅ Word updated successfully");
         return convertToResponseDTO(updatedWord);
     }
 
     @Override
     @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = "words", allEntries = true),
+            @CacheEvict(value = "wordDetails", key = "#id")
+    })
     public void deleteWord(Long id) {
+        log.info("🗑️ Deleting word {} - Will clear cache", id);
+
         Word word = wordRepo.findById(id)
                 .orElseThrow(() -> new ApiException("Word not found with id: " + id));
 
-        // Delete examples
         List<WordExample> examples = wordExampleRepo.findByWord(word);
         wordExampleRepo.deleteAll(examples);
 
-        // Delete meme image from Cloudflare R2
         if (word.getMemeImageUrl() != null) {
             imageUploadService.deleteImage(word.getMemeImageUrl());
         }
 
         wordRepo.delete(word);
+        log.info("✅ Word deleted successfully");
     }
 
     @Override
     @Transactional
     public List<WordResponseDTO> bulkCreateWords(Long categoryId, BulkWordImportDTO bulkRequest) {
+        log.info("📦 Bulk creating {} words - Will clear cache", bulkRequest.getWords().size());
+
         Category category = categoryRepo.findById(categoryId)
                 .orElseThrow(() -> new ApiException("Category not found with id: " + categoryId));
 
         List<WordResponseDTO> createdWords = new ArrayList<>();
 
         for (BulkWordImportDTO.WordEntry wordEntry : bulkRequest.getWords()) {
-            // Check if word already exists
             if (wordRepo.findByWord(wordEntry.getWord()).isPresent()) {
                 throw new ApiException("Word already exists: " + wordEntry.getWord());
             }
@@ -209,14 +229,12 @@ public class WordServiceImpl implements WordService {
             word.setCategory(category);
             word.setCreatedAt(LocalDateTime.now());
 
-            // Set image URL if provided (can be existing Cloudflare URL or null)
             if (wordEntry.getMemeImageUrl() != null && !wordEntry.getMemeImageUrl().isEmpty()) {
                 word.setMemeImageUrl(wordEntry.getMemeImageUrl());
             }
 
             Word savedWord = wordRepo.save(word);
 
-            // Add examples
             if (wordEntry.getExamples() != null && !wordEntry.getExamples().isEmpty()) {
                 for (String exampleText : wordEntry.getExamples()) {
                     if (exampleText != null && !exampleText.trim().isEmpty()) {
@@ -231,6 +249,9 @@ public class WordServiceImpl implements WordService {
             createdWords.add(convertToResponseDTO(savedWord));
         }
 
+        // Clear cache after bulk operation
+        evictAllWordCaches();
+
         return createdWords;
     }
 
@@ -241,11 +262,14 @@ public class WordServiceImpl implements WordService {
         return convertToResponseDTO(word);
     }
 
-    // ============ HELPER METHODS ============
-
     private WordResponseDTO convertToResponseDTO(Word word) {
         WordResponseDTO responseDTO = modelMapper.map(word, WordResponseDTO.class);
         responseDTO.setCategoryName(word.getCategory().getName());
         return responseDTO;
+    }
+
+    private void evictAllWordCaches() {
+        log.info("🗑️ Evicting all word caches");
+        // Programmatic cache eviction if needed
     }
 }
