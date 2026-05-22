@@ -13,7 +13,7 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/admin/categories")
+@RequestMapping(value = "/api/admin/categories", produces = "application/json")
 @RequiredArgsConstructor
 @CrossOrigin(origins = "*")
 public class AdminCategoryController {
