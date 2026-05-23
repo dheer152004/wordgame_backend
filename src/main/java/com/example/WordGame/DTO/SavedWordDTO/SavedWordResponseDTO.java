@@ -14,5 +14,4 @@ public class SavedWordResponseDTO {
     private String memeImageUrl;
     private String categoryName;
     private String notes;
-    private LocalDateTime savedAt;
 }

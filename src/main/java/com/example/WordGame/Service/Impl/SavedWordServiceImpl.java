@@ -20,7 +20,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
 
 @Service
 @RequiredArgsConstructor
@@ -50,7 +49,6 @@ public class SavedWordServiceImpl implements SavedWordService {
         UserSavedWord savedWord = new UserSavedWord();
         savedWord.setUser(user);
         savedWord.setWord(word);
-        savedWord.setSavedAt(LocalDateTime.now());
         savedWord.setNotes(request.getNotes());
 
         UserSavedWord saved = savedWordRepository.save(savedWord);
@@ -65,7 +63,6 @@ public class SavedWordServiceImpl implements SavedWordService {
                 .memeImageUrl(word.getMemeImageUrl())
                 .categoryName(word.getCategory().getName())
                 .notes(saved.getNotes())
-                .savedAt(saved.getSavedAt())
                 .build();
     }
 
@@ -134,7 +131,6 @@ public class SavedWordServiceImpl implements SavedWordService {
                 .memeImageUrl(word.getMemeImageUrl())
                 .categoryName(word.getCategory().getName())
                 .notes(savedWord.getNotes())
-                .savedAt(savedWord.getSavedAt())
                 .build();
     }
 
