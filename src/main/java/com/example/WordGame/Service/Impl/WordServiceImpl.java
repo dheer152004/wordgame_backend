@@ -15,13 +15,13 @@ import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.Caching;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -35,6 +35,29 @@ public class WordServiceImpl implements WordService {
     private final WordExampleRepo wordExampleRepo;
     private final ModelMapper modelMapper;
     private final AzureImageUploadService imageUploadService;
+
+    // ✅ ONLY ONE NEW METHOD - Random words with caching
+    @Override
+    @Cacheable(value = "randomWords", key = "#pageable.pageNumber + '_' + #pageable.pageSize", unless = "#result == null")
+    public Page<WordResponseDTO> getRandomWords(Pageable pageable) {
+        log.info("🎲 CACHE MISS - Fetching random words from DATABASE - Page: {}, Size: {}",
+                pageable.getPageNumber(), pageable.getPageSize());
+
+        // Get all words without category filter
+        Page<Word> wordsPage = wordRepo.findAllWords(pageable);
+
+        // Convert to DTO
+        List<WordResponseDTO> dtos = wordsPage.getContent().stream()
+                .map(this::convertToResponseDTO)
+                .collect(Collectors.toList());
+
+        // Shuffle for randomness
+        Collections.shuffle(dtos);
+
+        return new PageImpl<>(dtos, pageable, wordsPage.getTotalElements());
+    }
+
+    // ✅ Existing methods below...
 
     @Override
     @Cacheable(value = "words", key = "#categoryName + '_' + #pageable.pageNumber + '_' + #pageable.pageSize", unless = "#result == null")
@@ -81,7 +104,8 @@ public class WordServiceImpl implements WordService {
     @Transactional
     @Caching(evict = {
             @CacheEvict(value = "words", allEntries = true),
-            @CacheEvict(value = "wordDetails", allEntries = true)
+            @CacheEvict(value = "wordDetails", allEntries = true),
+            @CacheEvict(value = "randomWords", allEntries = true)  // Clear random words cache
     })
     public WordResponseDTO createWord(WordRequestDTO request) {
         log.info("📝 Creating new word: {} - Will clear cache", request.getWord());
@@ -129,7 +153,8 @@ public class WordServiceImpl implements WordService {
     @Transactional
     @Caching(evict = {
             @CacheEvict(value = "words", allEntries = true),
-            @CacheEvict(value = "wordDetails", key = "#id")
+            @CacheEvict(value = "wordDetails", key = "#id"),
+            @CacheEvict(value = "randomWords", allEntries = true)  // Clear random words cache
     })
     public WordResponseDTO updateWord(Long id, WordRequestDTO request) {
         log.info("📝 Updating word {} - Will clear cache", id);
@@ -189,7 +214,8 @@ public class WordServiceImpl implements WordService {
     @Transactional
     @Caching(evict = {
             @CacheEvict(value = "words", allEntries = true),
-            @CacheEvict(value = "wordDetails", key = "#id")
+            @CacheEvict(value = "wordDetails", key = "#id"),
+            @CacheEvict(value = "randomWords", allEntries = true)  // Clear random words cache
     })
     public void deleteWord(Long id) {
         log.info("🗑️ Deleting word {} - Will clear cache", id);
@@ -249,7 +275,7 @@ public class WordServiceImpl implements WordService {
             createdWords.add(convertToResponseDTO(savedWord));
         }
 
-        // Clear cache after bulk operation
+        // Clear all caches
         evictAllWordCaches();
 
         return createdWords;

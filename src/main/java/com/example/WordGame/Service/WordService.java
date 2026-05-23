@@ -11,13 +11,17 @@ import java.util.List;
 
 public interface WordService {
 
-    public Page<WordResponseDTO> getWordsByCategory(String categoryName, Pageable pageable);
-    public WordDetailResponseDTO getWordDetail(Long wordId);
-    public WordResponseDTO toggleWordStatus(Long id);
-    public List<WordResponseDTO> bulkCreateWords(Long categoryId, BulkWordImportDTO bulkRequest);
-    public void deleteWord(Long id);
-    public WordResponseDTO updateWord(Long id, WordRequestDTO request);
-    public WordResponseDTO createWord(WordRequestDTO request);
-    public WordResponseDTO getWordById(Long id);
+    // Existing methods...
+    Page<WordResponseDTO> getWordsByCategory(String categoryName, Pageable pageable);
+    WordDetailResponseDTO getWordDetail(Long wordId);
+    WordResponseDTO getWordById(Long id);
+    WordResponseDTO createWord(WordRequestDTO request);
+    WordResponseDTO updateWord(Long id, WordRequestDTO request);
+    void deleteWord(Long id);
+    List<WordResponseDTO> bulkCreateWords(Long categoryId, BulkWordImportDTO bulkRequest);
+    WordResponseDTO toggleWordStatus(Long id);
+
+    // ✅ ONLY ONE NEW METHOD - Random words without category
+    Page<WordResponseDTO> getRandomWords(Pageable pageable);
 
 }

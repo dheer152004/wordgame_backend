@@ -21,7 +21,6 @@ public class WordController {
     private final WordService wordService;
 
     // GET /api/words/category/{categoryName}?page=0&size=10
-    // Get words for swiping based on selected category
     @GetMapping("/category/{categoryName}")
     public ResponseEntity<Map<String, Object>> getWordsByCategory(
             @PathVariable String categoryName,
@@ -42,10 +41,31 @@ public class WordController {
         return ResponseEntity.ok(response);
     }
 
-    // GET /api/words/{id} - Get word details when user clicks
+    // GET /api/words/{id}
     @GetMapping("/{id}")
     public ResponseEntity<WordDetailResponseDTO> getWordDetail(@PathVariable Long id) {
         WordDetailResponseDTO wordDetail = wordService.getWordDetail(id);
         return ResponseEntity.ok(wordDetail);
+    }
+
+    // ✅ NEW API - Get random words without category (WITH CACHING)
+    @GetMapping("/random")
+    public ResponseEntity<Map<String, Object>> getRandomWords(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+
+        Pageable pageable = PageRequest.of(page, size);
+        Page<WordResponseDTO> wordsPage = wordService.getRandomWords(pageable);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("words", wordsPage.getContent());
+        response.put("currentPage", wordsPage.getNumber());
+        response.put("totalPages", wordsPage.getTotalPages());
+        response.put("totalWords", wordsPage.getTotalElements());
+        response.put("hasMore", wordsPage.hasNext());
+        response.put("pageSize", wordsPage.getSize());
+        response.put("isRandom", true);
+
+        return ResponseEntity.ok(response);
     }
 }
