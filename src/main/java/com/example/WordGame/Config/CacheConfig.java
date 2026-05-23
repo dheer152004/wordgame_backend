@@ -50,6 +50,12 @@ public class CacheConfig {
                         .entryTtl(Duration.ofMinutes(15))
                         .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(new GenericJackson2JsonRedisSerializer())));
 
+        // ✅ ADDED: Random words cache - 10 minutes (balanced for randomness and performance)
+        cacheConfigurations.put("randomWords",
+                RedisCacheConfiguration.defaultCacheConfig()
+                        .entryTtl(Duration.ofMinutes(10))
+                        .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(new GenericJackson2JsonRedisSerializer())));
+
         // Quiz questions - 1 day (changes daily)
         cacheConfigurations.put("quizQuestions",
                 RedisCacheConfiguration.defaultCacheConfig()
