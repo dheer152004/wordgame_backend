@@ -38,7 +38,6 @@ public class WordServiceImpl implements WordService {
 
     // ✅ ONLY ONE NEW METHOD - Random words with caching
     @Override
-    @Cacheable(value = "randomWords", key = "#pageable.pageNumber + '_' + #pageable.pageSize", unless = "#result == null")
     public Page<WordResponseDTO> getRandomWords(Pageable pageable) {
         log.info("🎲 CACHE MISS - Fetching random words from DATABASE - Page: {}, Size: {}",
                 pageable.getPageNumber(), pageable.getPageSize());

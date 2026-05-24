@@ -69,7 +69,6 @@ public class SavedWordServiceImpl implements SavedWordService {
 
 
     @Override
-    @Cacheable(value = "savedWords", key = "#username + '_' + #pageable.pageNumber + '_' + #pageable.pageSize", unless = "#result == null")
     public Page<SavedWordResponseDTO> getSavedWords(String username, Pageable pageable) {
         log.info("📚 Fetching saved words for user {}", username);
 
