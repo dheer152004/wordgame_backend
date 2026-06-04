@@ -59,7 +59,7 @@ public class WordServiceImpl implements WordService {
     // ✅ Existing methods below...
 
     @Override
-    @Cacheable(value = "words", key = "#categoryName + '_' + #pageable.pageNumber + '_' + #pageable.pageSize", unless = "#result == null")
+   // @Cacheable(value = "words", key = "#categoryName + '_' + #pageable.pageNumber + '_' + #pageable.pageSize", unless = "#result == null")
     public Page<WordResponseDTO> getWordsByCategory(String categoryName, Pageable pageable) {
         log.info("📚 CACHE MISS - Fetching words for category '{}' page {} from DATABASE", categoryName, pageable.getPageNumber());
 
@@ -112,9 +112,7 @@ public class WordServiceImpl implements WordService {
         Category category = categoryRepo.findById(request.getCategoryId())
                 .orElseThrow(() -> new ApiException("Category not found with id: " + request.getCategoryId()));
 
-        if (wordRepo.findByWord(request.getWord()).isPresent()) {
-            throw new ApiException("Word already exists: " + request.getWord());
-        }
+
 
         Word word = new Word();
         word.setWord(request.getWord());
