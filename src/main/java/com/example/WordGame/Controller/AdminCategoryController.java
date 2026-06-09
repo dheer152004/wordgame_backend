@@ -30,14 +30,14 @@ public class AdminCategoryController {
         return ResponseEntity.ok(categoryService.getCategoryById(id));
     }
 
-    @PostMapping
+    @PostMapping(consumes = {"multipart/form-data"})
     public ResponseEntity<CategoryResponseDTO> createCategory(
             @ModelAttribute CategoryRequestDTO request) {
         CategoryResponseDTO category = categoryService.createCategory(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(category);
     }
 
-    @PutMapping("/{id}")
+    @PutMapping(value = "/{id}", consumes = {"multipart/form-data"})
     public ResponseEntity<CategoryResponseDTO> updateCategory(
             @PathVariable Long id,
             @ModelAttribute CategoryUpdateDTO request) {

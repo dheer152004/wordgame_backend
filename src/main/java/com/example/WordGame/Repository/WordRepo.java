@@ -17,6 +17,8 @@ public interface WordRepo extends JpaRepository<Word, Long> {
 
     Page<Word> findByCategory(Category category, Pageable pageable);
 
+    List<Word> findAllByCategoryId(Long categoryId);
+
     Optional<Word> findByWord(String word);
 
     long countByCategory(Category category);

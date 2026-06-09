@@ -1,6 +1,5 @@
 package com.example.WordGame.Entities;
 
-
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -11,31 +10,24 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Entity
-@Table(name = "categories")
+@Table(name = "genres")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class Category {
+public class Genre {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "genre_id")
-    private Genre genre;
-
     @Column(nullable = false, length = 100)
     private String name;
 
     @Column(name = "image_url", length = 500)
-    private String imageUrl;  // Cloudflare R2 URL
+    private String imageUrl;
 
-    @Column(length = 500)
+    @Column(name = "description", length = 2000)
     private String description;
-
-    @Column(name = "is_active")
-    private Boolean isActive = true;
 
     @Column(name = "created_at")
     private LocalDateTime createdAt = LocalDateTime.now();
@@ -43,10 +35,6 @@ public class Category {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt = LocalDateTime.now();
 
-    @OneToMany(mappedBy = "category", cascade = CascadeType.ALL)
-    private List<Word> words = new ArrayList<>();
-
-    public Category(String name) {
-        this.name = name;
-    }
+    @OneToMany(mappedBy = "genre", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private List<Category> categories = new ArrayList<>();
 }

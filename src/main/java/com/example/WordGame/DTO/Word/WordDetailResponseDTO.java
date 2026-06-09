@@ -16,6 +16,9 @@ public class WordDetailResponseDTO {
     private String word;
     private String meaning;
     private String memeImageUrl;
+    private String imageUrl;
+    private String factsJson;
+    private String examplesJson;
     private String categoryName;
     private List<String> examples;
 }

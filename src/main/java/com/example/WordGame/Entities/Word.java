@@ -23,14 +23,20 @@ public class Word {
     @JoinColumn(name = "category_id", nullable = false)
     private Category category;
 
-    @Column(unique = true, nullable = false, length = 100)
+    @Column(nullable = false, length = 255)
     private String word;
 
     @Column(nullable = false, columnDefinition = "TEXT")
     private String meaning;
 
-    @Column(name = "meme_image_url", length = 500)
-    private String memeImageUrl;
+    @Column(name = "image_url", length = 500)
+    private String imageUrl;
+
+    @Column(name = "facts", columnDefinition = "TEXT")
+    private String factsJson;
+
+    @Column(name = "examples", columnDefinition = "TEXT")
+    private String examplesJson;
 
     @Column(name = "view_count")
     private Integer viewCount = 0;
@@ -49,4 +55,18 @@ public class Word {
 
     @OneToMany(mappedBy = "word", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<UserShare> shares = new ArrayList<>();
+
+    @OneToMany(mappedBy = "word", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private List<WordRelation> outgoingRelations = new ArrayList<>();
+
+    @OneToMany(mappedBy = "relatedWord", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private List<WordRelation> incomingRelations = new ArrayList<>();
+
+    public String getMemeImageUrl() {
+        return imageUrl;
+    }
+
+    public void setMemeImageUrl(String memeImageUrl) {
+        this.imageUrl = memeImageUrl;
+    }
 }

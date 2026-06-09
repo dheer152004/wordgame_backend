@@ -20,6 +20,7 @@ import java.util.List;
 @Slf4j
 public class DataInitializer implements CommandLineRunner {
 
+    private final GenreRepo genreRepo;
     private final CategoryRepo categoryRepo;
     private final WordRepo wordRepo;
     private final WordExampleRepo wordExampleRepo;
@@ -32,6 +33,7 @@ public class DataInitializer implements CommandLineRunner {
         // Only initialize if database is empty
         if (categoryRepo.count() == 0) {
             log.info("📚 No data found. Initializing database with sample data...");
+            Genre generalGenre = ensureGeneralGenre();
             initializeCategories();
             initializeWords();
             initializeDailyQuiz();
@@ -44,19 +46,33 @@ public class DataInitializer implements CommandLineRunner {
     private void initializeCategories() {
         log.info("Creating categories...");
 
+        Genre generalGenre = ensureGeneralGenre();
+
         List<Category> categories = Arrays.asList(
-                createCategory("Slang", "Modern informal language used in everyday conversation", "https://placehold.co/600x400/FF6B6B/white?text=Slang"),
-                createCategory("Gen Z", "Popular terms among Gen Z generation", "https://placehold.co/600x400/4ECDC4/white?text=Gen+Z"),
-                createCategory("Business", "Corporate and professional vocabulary", "https://placehold.co/600x400/45B7D1/white?text=Business"),
-                createCategory("Trending", "Viral words and phrases right now", "https://placehold.co/600x400/F7B731/white?text=Trending")
+            createCategory(generalGenre, "Slang", "Modern informal language used in everyday conversation", "https://placehold.co/600x400/FF6B6B/white?text=Slang"),
+            createCategory(generalGenre, "Gen Z", "Popular terms among Gen Z generation", "https://placehold.co/600x400/4ECDC4/white?text=Gen+Z"),
+            createCategory(generalGenre, "Business", "Corporate and professional vocabulary", "https://placehold.co/600x400/45B7D1/white?text=Business"),
+            createCategory(generalGenre, "Trending", "Viral words and phrases right now", "https://placehold.co/600x400/F7B731/white?text=Trending")
         );
 
         categoryRepo.saveAll(categories);
         log.info("✅ Created {} categories", categories.size());
     }
 
-    private Category createCategory(String name, String description, String imageUrl) {
+    private Genre ensureGeneralGenre() {
+        return genreRepo.findByName("General")
+                .orElseGet(() -> {
+                    Genre genre = new Genre();
+                    genre.setName("General");
+                    genre.setCreatedAt(LocalDateTime.now());
+                    genre.setUpdatedAt(LocalDateTime.now());
+                    return genreRepo.save(genre);
+                });
+    }
+
+    private Category createCategory(Genre genre, String name, String description, String imageUrl) {
         Category category = new Category();
+        category.setGenre(genre);
         category.setName(name);
         category.setDescription(description);
         category.setImageUrl(imageUrl);

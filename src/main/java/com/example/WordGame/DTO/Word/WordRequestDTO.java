@@ -10,5 +10,8 @@ public class WordRequestDTO {
     private String meaning;
     private Long categoryId;
     private MultipartFile memeImage;
+    private String imageUrl;
+    private String factsJson;
+    private String examplesJson;
     private List<String> examples;
 }

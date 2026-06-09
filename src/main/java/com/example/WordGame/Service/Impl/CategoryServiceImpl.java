@@ -4,7 +4,9 @@ import com.example.WordGame.DTO.CategoryDTO.CategoryRequestDTO;
 import com.example.WordGame.DTO.CategoryDTO.CategoryResponseDTO;
 import com.example.WordGame.DTO.CategoryDTO.CategoryUpdateDTO;
 import com.example.WordGame.Entities.Category;
+import com.example.WordGame.Entities.Genre;
 import com.example.WordGame.Repository.CategoryRepo;
+import com.example.WordGame.Repository.GenreRepo;
 import com.example.WordGame.Repository.WordRepo;
 import com.example.WordGame.Service.CategoryService;
 import com.example.WordGame.exceptions.ApiException;
@@ -27,6 +29,7 @@ import java.util.stream.Collectors;
 public class CategoryServiceImpl implements CategoryService {
 
     private final CategoryRepo categoryRepo;
+    private final GenreRepo genreRepo;
     private final WordRepo wordRepo;
     private final ModelMapper modelMapper;
     private final AzureImageUploadService imageUploadService;
@@ -37,11 +40,7 @@ public class CategoryServiceImpl implements CategoryService {
         log.info("📚 CACHE MISS - Fetching all categories from DATABASE");
         List<Category> categories = categoryRepo.findAll();
         return categories.stream()
-                .map(category -> {
-                    CategoryResponseDTO dto = modelMapper.map(category, CategoryResponseDTO.class);
-                    dto.setWordCount(wordRepo.countByCategory(category));
-                    return dto;
-                })
+                .map(this::toResponseDto)
                 .collect(Collectors.toList());
     }
 
@@ -51,10 +50,7 @@ public class CategoryServiceImpl implements CategoryService {
         log.info("📚 CACHE MISS - Fetching category by id {} from DATABASE", id);
         Category category = categoryRepo.findById(id)
                 .orElseThrow(() -> new ApiException("Category not found with id: " + id));
-
-        CategoryResponseDTO dto = modelMapper.map(category, CategoryResponseDTO.class);
-        dto.setWordCount(wordRepo.countByCategory(category));
-        return dto;
+        return toResponseDto(category);
     }
 
     @Override
@@ -66,33 +62,22 @@ public class CategoryServiceImpl implements CategoryService {
     public CategoryResponseDTO createCategory(CategoryRequestDTO request) {
         log.info("📝 Creating new category: {} - Will clear cache", request.getName());
 
-        if (categoryRepo.findByName(request.getName()).isPresent()) {
-            throw new ApiException("Category already exists with name: " + request.getName());
-        }
-
         Category category = new Category();
+        category.setGenre(resolveGenre(request.getGenreId()));
         category.setName(request.getName());
         category.setDescription(request.getDescription());
         category.setIsActive(true);
         category.setCreatedAt(LocalDateTime.now());
         category.setUpdatedAt(LocalDateTime.now());
 
-        if (request.getImage() != null && !request.getImage().isEmpty()) {
-            try {
-                String imageUrl = imageUploadService.uploadImage(request.getImage(), "categories");
-                category.setImageUrl(imageUrl);
-                log.info("✅ Image uploaded: {}", imageUrl);
-            } catch (Exception e) {
-                throw new ApiException("Failed to upload image: " + e.getMessage());
-            }
+        String imageUrl = resolveImageUrl(request.getImageUrl(), request.getImage());
+        if (imageUrl != null) {
+            category.setImageUrl(imageUrl);
         }
 
         Category savedCategory = categoryRepo.save(category);
         log.info("✅ Category saved with ID: {}", savedCategory.getId());
-
-        CategoryResponseDTO response = modelMapper.map(savedCategory, CategoryResponseDTO.class);
-        response.setWordCount(0L);
-        return response;
+        return toResponseDto(savedCategory);
     }
 
     @Override
@@ -108,10 +93,13 @@ public class CategoryServiceImpl implements CategoryService {
         Category category = categoryRepo.findById(id)
                 .orElseThrow(() -> new ApiException("Category not found with id: " + id));
 
-        if (request.getName() != null && !request.getName().equals(category.getName())) {
-            if (categoryRepo.findByName(request.getName()).isPresent()) {
-                throw new ApiException("Category already exists with name: " + request.getName());
-            }
+        if (request.getGenreId() != null) {
+            category.setGenre(resolveGenre(request.getGenreId()));
+        } else if (category.getGenre() == null) {
+            category.setGenre(resolveGenre(null));
+        }
+
+        if (request.getName() != null) {
             category.setName(request.getName());
         }
 
@@ -123,25 +111,15 @@ public class CategoryServiceImpl implements CategoryService {
             category.setIsActive(request.getIsActive());
         }
 
-        if (request.getImage() != null && !request.getImage().isEmpty()) {
-            try {
-                if (category.getImageUrl() != null && !category.getImageUrl().isEmpty()) {
-                    imageUploadService.deleteImage(category.getImageUrl());
-                }
-                String imageUrl = imageUploadService.uploadImage(request.getImage(), "categories");
-                category.setImageUrl(imageUrl);
-            } catch (Exception e) {
-                throw new ApiException("Failed to upload image: " + e.getMessage());
-            }
+        String imageUrl = resolveImageUrl(request.getImageUrl(), request.getImage());
+        if (imageUrl != null) {
+            category.setImageUrl(imageUrl);
         }
 
         category.setUpdatedAt(LocalDateTime.now());
         Category updatedCategory = categoryRepo.save(category);
         log.info("✅ Category updated successfully");
-
-        CategoryResponseDTO response = modelMapper.map(updatedCategory, CategoryResponseDTO.class);
-        response.setWordCount(wordRepo.countByCategory(updatedCategory));
-        return response;
+        return toResponseDto(updatedCategory);
     }
 
     @Override
@@ -188,9 +166,42 @@ public class CategoryServiceImpl implements CategoryService {
         category.setIsActive(!category.getIsActive());
         category.setUpdatedAt(LocalDateTime.now());
         Category updatedCategory = categoryRepo.save(category);
+        return toResponseDto(updatedCategory);
+    }
 
-        CategoryResponseDTO response = modelMapper.map(updatedCategory, CategoryResponseDTO.class);
-        response.setWordCount(wordRepo.countByCategory(updatedCategory));
-        return response;
+    private Genre resolveGenre(Long genreId) {
+        if (genreId != null) {
+            return genreRepo.findById(genreId)
+                    .orElseThrow(() -> new ApiException("Genre not found with id: " + genreId));
+        }
+
+        return genreRepo.findByName("General")
+                .orElseGet(() -> {
+                    Genre genre = new Genre();
+                    genre.setName("General");
+                    genre.setCreatedAt(LocalDateTime.now());
+                    genre.setUpdatedAt(LocalDateTime.now());
+                    return genreRepo.save(genre);
+                });
+    }
+
+    private CategoryResponseDTO toResponseDto(Category category) {
+        CategoryResponseDTO dto = modelMapper.map(category, CategoryResponseDTO.class);
+        dto.setGenreId(category.getGenre() != null ? category.getGenre().getId() : null);
+        dto.setGenreName(category.getGenre() != null ? category.getGenre().getName() : null);
+        dto.setWordCount(wordRepo.countByCategory(category));
+        return dto;
+    }
+
+    private String resolveImageUrl(String imageUrl, String imageAlias) {
+        if (imageUrl != null && !imageUrl.isBlank()) {
+            return imageUrl;
+        }
+
+        if (imageAlias != null && !imageAlias.isBlank()) {
+            return imageAlias;
+        }
+
+        return null;
     }
 }

@@ -2,6 +2,8 @@ package com.example.WordGame.Service.Impl;
 
 import com.example.WordGame.DTO.Word.*;
 import com.example.WordGame.Entities.*;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.example.WordGame.Repository.CategoryRepo;
 import com.example.WordGame.Repository.WordExampleRepo;
 import com.example.WordGame.Repository.WordRepo;
@@ -35,6 +37,7 @@ public class WordServiceImpl implements WordService {
     private final WordExampleRepo wordExampleRepo;
     private final ModelMapper modelMapper;
     private final AzureImageUploadService imageUploadService;
+    private final ObjectMapper objectMapper;
 
     // ✅ ONLY ONE NEW METHOD - Random words with caching
     @Override
@@ -82,9 +85,17 @@ public class WordServiceImpl implements WordService {
                 .map(WordExample::getExample)
                 .collect(Collectors.toList());
 
+        if (examples.isEmpty()) {
+            examples = parseExamples(word.getExamplesJson());
+        }
+
         WordDetailResponseDTO responseDTO = modelMapper.map(word, WordDetailResponseDTO.class);
         responseDTO.setCategoryName(word.getCategory().getName());
         responseDTO.setExamples(examples);
+        responseDTO.setMemeImageUrl(word.getMemeImageUrl());
+        responseDTO.setImageUrl(word.getImageUrl());
+        responseDTO.setFactsJson(word.getFactsJson());
+        responseDTO.setExamplesJson(word.getExamplesJson());
 
         return responseDTO;
     }
@@ -112,35 +123,18 @@ public class WordServiceImpl implements WordService {
         Category category = categoryRepo.findById(request.getCategoryId())
                 .orElseThrow(() -> new ApiException("Category not found with id: " + request.getCategoryId()));
 
-
-
         Word word = new Word();
         word.setWord(request.getWord());
         word.setMeaning(request.getMeaning());
         word.setCategory(category);
         word.setCreatedAt(LocalDateTime.now());
-
-        if (request.getMemeImage() != null && !request.getMemeImage().isEmpty()) {
-            try {
-                String imageUrl = imageUploadService.uploadImage(request.getMemeImage(), "words");
-                word.setMemeImageUrl(imageUrl);
-            } catch (Exception e) {
-                throw new ApiException("Failed to upload image: " + e.getMessage());
-            }
-        }
+        word.setImageUrl(resolveImageUrl(request));
+        word.setFactsJson(resolveFactsJson(request));
+        word.setExamplesJson(resolveExamplesJson(request));
 
         Word savedWord = wordRepo.save(word);
 
-        if (request.getExamples() != null && !request.getExamples().isEmpty()) {
-            for (String exampleText : request.getExamples()) {
-                if (exampleText != null && !exampleText.trim().isEmpty()) {
-                    WordExample example = new WordExample();
-                    example.setWord(savedWord);
-                    example.setExample(exampleText);
-                    wordExampleRepo.save(example);
-                }
-            }
-        }
+        persistExamples(savedWord, resolveExamples(request));
 
         log.info("✅ Word created successfully with ID: {}", savedWord.getId());
         return convertToResponseDTO(savedWord);
@@ -159,10 +153,7 @@ public class WordServiceImpl implements WordService {
         Word word = wordRepo.findById(id)
                 .orElseThrow(() -> new ApiException("Word not found with id: " + id));
 
-        if (request.getWord() != null && !request.getWord().equals(word.getWord())) {
-            if (wordRepo.findByWord(request.getWord()).isPresent()) {
-                throw new ApiException("Word already exists: " + request.getWord());
-            }
+        if (request.getWord() != null) {
             word.setWord(request.getWord());
         }
 
@@ -176,30 +167,34 @@ public class WordServiceImpl implements WordService {
             word.setCategory(category);
         }
 
-        if (request.getMemeImage() != null && !request.getMemeImage().isEmpty()) {
-            if (word.getMemeImageUrl() != null) {
-                imageUploadService.deleteImage(word.getMemeImageUrl());
+        if (request.getImageUrl() != null && !request.getImageUrl().isBlank()) {
+            word.setImageUrl(request.getImageUrl());
+        } else if (request.getMemeImage() != null && !request.getMemeImage().isEmpty()) {
+            if (word.getImageUrl() != null) {
+                imageUploadService.deleteImage(word.getImageUrl());
             }
             try {
                 String imageUrl = imageUploadService.uploadImage(request.getMemeImage(), "words");
-                word.setMemeImageUrl(imageUrl);
+                word.setImageUrl(imageUrl);
             } catch (Exception e) {
                 throw new ApiException("Failed to upload image: " + e.getMessage());
             }
         }
 
-        if (request.getExamples() != null) {
+        if (request.getFactsJson() != null) {
+            word.setFactsJson(request.getFactsJson());
+        }
+
+        if (request.getExamplesJson() != null) {
+            word.setExamplesJson(request.getExamplesJson());
+        } else if (request.getExamples() != null) {
+            word.setExamplesJson(serializeExamples(request.getExamples()));
+        }
+
+        if (request.getExamplesJson() != null || request.getExamples() != null) {
             List<WordExample> existingExamples = wordExampleRepo.findByWord(word);
             wordExampleRepo.deleteAll(existingExamples);
-
-            for (String exampleText : request.getExamples()) {
-                if (exampleText != null && !exampleText.trim().isEmpty()) {
-                    WordExample example = new WordExample();
-                    example.setWord(word);
-                    example.setExample(exampleText);
-                    wordExampleRepo.save(example);
-                }
-            }
+            persistExamples(word, resolveExamples(request));
         }
 
         Word updatedWord = wordRepo.save(word);
@@ -223,8 +218,8 @@ public class WordServiceImpl implements WordService {
         List<WordExample> examples = wordExampleRepo.findByWord(word);
         wordExampleRepo.deleteAll(examples);
 
-        if (word.getMemeImageUrl() != null) {
-            imageUploadService.deleteImage(word.getMemeImageUrl());
+        if (word.getImageUrl() != null) {
+            imageUploadService.deleteImage(word.getImageUrl());
         }
 
         wordRepo.delete(word);
@@ -242,32 +237,19 @@ public class WordServiceImpl implements WordService {
         List<WordResponseDTO> createdWords = new ArrayList<>();
 
         for (BulkWordImportDTO.WordEntry wordEntry : bulkRequest.getWords()) {
-            if (wordRepo.findByWord(wordEntry.getWord()).isPresent()) {
-                throw new ApiException("Word already exists: " + wordEntry.getWord());
-            }
-
             Word word = new Word();
             word.setWord(wordEntry.getWord());
             word.setMeaning(wordEntry.getMeaning());
             word.setCategory(category);
             word.setCreatedAt(LocalDateTime.now());
 
-            if (wordEntry.getMemeImageUrl() != null && !wordEntry.getMemeImageUrl().isEmpty()) {
-                word.setMemeImageUrl(wordEntry.getMemeImageUrl());
-            }
+            word.setImageUrl(resolveImageUrl(wordEntry));
+            word.setFactsJson(wordEntry.getFactsJson());
+            word.setExamplesJson(wordEntry.getExamplesJson());
 
             Word savedWord = wordRepo.save(word);
 
-            if (wordEntry.getExamples() != null && !wordEntry.getExamples().isEmpty()) {
-                for (String exampleText : wordEntry.getExamples()) {
-                    if (exampleText != null && !exampleText.trim().isEmpty()) {
-                        WordExample example = new WordExample();
-                        example.setWord(savedWord);
-                        example.setExample(exampleText);
-                        wordExampleRepo.save(example);
-                    }
-                }
-            }
+            persistExamples(savedWord, resolveExamples(wordEntry));
 
             createdWords.add(convertToResponseDTO(savedWord));
         }
@@ -288,7 +270,107 @@ public class WordServiceImpl implements WordService {
     private WordResponseDTO convertToResponseDTO(Word word) {
         WordResponseDTO responseDTO = modelMapper.map(word, WordResponseDTO.class);
         responseDTO.setCategoryName(word.getCategory().getName());
+        responseDTO.setMemeImageUrl(word.getMemeImageUrl());
+        responseDTO.setImageUrl(word.getImageUrl());
+        responseDTO.setFactsJson(word.getFactsJson());
+        responseDTO.setExamplesJson(word.getExamplesJson());
         return responseDTO;
+    }
+
+    private String resolveImageUrl(WordRequestDTO request) {
+        if (request.getImageUrl() != null && !request.getImageUrl().isBlank()) {
+            return request.getImageUrl();
+        }
+
+        if (request.getMemeImage() != null && !request.getMemeImage().isEmpty()) {
+            try {
+                return imageUploadService.uploadImage(request.getMemeImage(), "words");
+            } catch (Exception e) {
+                throw new ApiException("Failed to upload image: " + e.getMessage());
+            }
+        }
+
+        return null;
+    }
+
+    private String resolveImageUrl(BulkWordImportDTO.WordEntry wordEntry) {
+        if (wordEntry.getImageUrl() != null && !wordEntry.getImageUrl().isBlank()) {
+            return wordEntry.getImageUrl();
+        }
+
+        if (wordEntry.getMemeImageUrl() != null && !wordEntry.getMemeImageUrl().isBlank()) {
+            return wordEntry.getMemeImageUrl();
+        }
+
+        return null;
+    }
+
+    private String resolveFactsJson(WordRequestDTO request) {
+        return request.getFactsJson();
+    }
+
+    private String resolveExamplesJson(WordRequestDTO request) {
+        if (request.getExamplesJson() != null) {
+            return request.getExamplesJson();
+        }
+
+        if (request.getExamples() != null) {
+            return serializeExamples(request.getExamples());
+        }
+
+        return null;
+    }
+
+    private List<String> resolveExamples(WordRequestDTO request) {
+        if (request.getExamples() != null) {
+            return request.getExamples();
+        }
+
+        return parseExamples(request.getExamplesJson());
+    }
+
+    private List<String> resolveExamples(BulkWordImportDTO.WordEntry wordEntry) {
+        if (wordEntry.getExamples() != null) {
+            return wordEntry.getExamples();
+        }
+
+        return parseExamples(wordEntry.getExamplesJson());
+    }
+
+    private void persistExamples(Word word, List<String> examples) {
+        if (examples == null || examples.isEmpty()) {
+            return;
+        }
+
+        for (String exampleText : examples) {
+            if (exampleText != null && !exampleText.trim().isEmpty()) {
+                WordExample example = new WordExample();
+                example.setWord(word);
+                example.setExample(exampleText);
+                wordExampleRepo.save(example);
+            }
+        }
+    }
+
+    private String serializeExamples(List<String> examples) {
+        try {
+            return objectMapper.writeValueAsString(examples);
+        } catch (Exception e) {
+            throw new ApiException("Failed to serialize examples: " + e.getMessage());
+        }
+    }
+
+    private List<String> parseExamples(String examplesJson) {
+        if (examplesJson == null || examplesJson.isBlank()) {
+            return Collections.emptyList();
+        }
+
+        try {
+            return objectMapper.readValue(examplesJson, new TypeReference<List<String>>() {});
+        } catch (Exception e) {
+            log.warn("Failed to parse examples JSON: {}", e.getMessage());
+            return Collections.singletonList(examplesJson);
+        }
     }
 
     private void evictAllWordCaches() {

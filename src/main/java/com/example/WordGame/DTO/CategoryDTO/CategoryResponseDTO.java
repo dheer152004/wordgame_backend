@@ -9,6 +9,8 @@ import lombok.AllArgsConstructor;
 @AllArgsConstructor
 public class CategoryResponseDTO {
     private Long id;
+    private Long genreId;
+    private String genreName;
     private String name;
     private String imageUrl;
     private String description;

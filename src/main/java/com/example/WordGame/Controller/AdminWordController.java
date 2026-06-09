@@ -50,6 +50,14 @@ public class AdminWordController {
         return ResponseEntity.ok(word);
     }
 
+    @PatchMapping("/{id}")
+    public ResponseEntity<WordResponseDTO> patchWord(
+            @PathVariable Long id,
+            @ModelAttribute WordRequestDTO request) {
+        WordResponseDTO word = wordService.updateWord(id, request);
+        return ResponseEntity.ok(word);
+    }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<Map<String, String>> deleteWord(@PathVariable Long id) {
         wordService.deleteWord(id);
