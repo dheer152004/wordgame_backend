@@ -1,0 +1,19 @@
+package com.example.WordGame.modules.category.CategoryDTO;
+
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class CategoryResponseDTO {
+    private Long id;
+    private Long genreId;
+    private String genreName;
+    private String name;
+    private String imageUrl;
+    private String description;
+    private Boolean isActive;
+    private Long wordCount;
+}

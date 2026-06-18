@@ -53,12 +53,18 @@
 		</dependency>
 
 		<!-- Database -->
-		<dependency>
+		<!-- <dependency>
 			<groupId>org.postgresql</groupId>
 			<artifactId>postgresql</artifactId>
 			<version>42.7.3</version>
 			<scope>runtime</scope>
-		</dependency>
+		</dependency> -->
+
+		<dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <scope>runtime</scope>
+        </dependency>
 
 		<!-- Azure Storage Blob (For images) - Standalone, no BOM needed -->
 		<dependency>

@@ -1,0 +1,28 @@
+package com.example.WordGame.modules.words.service;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+
+import com.example.WordGame.modules.words.DTO.WordDetailResponseDTO;
+import com.example.WordGame.modules.words.DTO.WordRequestDTO;
+import com.example.WordGame.modules.words.DTO.WordResponseDTO;
+
+// import java.util.List;
+
+public interface WordService {
+
+    // Existing methods...
+    Page<WordResponseDTO> getWordsByCategory(String categoryName, Pageable pageable);
+    WordDetailResponseDTO getWordDetail(Long wordId);
+    WordResponseDTO getWordById(Long id);
+    WordResponseDTO createWord(WordRequestDTO request);
+    WordResponseDTO updateWord(Long id, WordRequestDTO request);
+    void deleteWord(Long id);
+    WordResponseDTO toggleWordStatus(Long id);
+    WordResponseDTO getWordResponseDTO(Long id);
+
+
+    // ✅ ONLY ONE NEW METHOD - Random words without category
+    Page<WordResponseDTO> getRandomWords(Pageable pageable);
+
+}
