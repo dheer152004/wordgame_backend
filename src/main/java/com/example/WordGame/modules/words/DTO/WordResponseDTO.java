@@ -25,8 +25,8 @@ public class WordResponseDTO {
     private String description;
     private List<String> facts;
     private List<String> examples;
-    private List<RelatedWord> relatedWordIds;
-    private List<AlsoAppearsIn> alsoAppearsIn;
+    private List<RelatedWord> relatedWordIds = new java.util.ArrayList<>();
+    private List<AlsoAppearsIn> alsoAppearsIn = new java.util.ArrayList<>();
     @JsonProperty("source&credits")
     private SourceCreditsDTO sourceAndCredits;
     private String created;

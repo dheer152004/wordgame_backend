@@ -168,11 +168,14 @@ public class WordServiceImpl implements WordService {
         if (images != null) word.setImages(images);
         word.setFactsJson(resolveFactsJson(request));
         word.setExamplesJson(resolveExamplesJson(request));
+        // persist related ids if provided
+        if (request.getRelatedWordIds() != null && !request.getRelatedWordIds().isEmpty()) {
+            word.setRelatedWordIds(request.getRelatedWordIds());
+        }
         if (request.getSourceAndCredits() != null) {
             word.setSourceCreditsJson(serializeSourceCredits(request.getSourceAndCredits()));
         }
 
-        Word savedWord = wordRepo.save(word);
 
         // persistExamples(savedWord, resolveExamples(request));
 
@@ -195,14 +198,18 @@ public class WordServiceImpl implements WordService {
         //     }
         // }
 
-        // handle alsoAppearsIn
+        // handle alsoAppearsIn - attach to the word before saving
         if (request.getAlsoAppearsIn() != null) {
-            savedWord.setAlsoAppearsInJson(serializeAlsoAppearsIn(request.getAlsoAppearsIn()));
-            wordRepo.save(savedWord);
+            word.setAlsoAppearsInJson(serializeAlsoAppearsIn(request.getAlsoAppearsIn()));
         }
 
+        Word savedWord = wordRepo.save(word);
+
+        // build response DTO
+        WordResponseDTO responseDTO = convertToResponseDTO(savedWord);
+
         log.info("✅ Word created successfully with ID: {}", savedWord.getId());
-        return convertToResponseDTO(savedWord);
+        return responseDTO;
     }
 
     @Override
@@ -294,7 +301,23 @@ public class WordServiceImpl implements WordService {
 
         Word updatedWord = wordRepo.save(word);
         log.info("✅ Word updated successfully");
-        return convertToResponseDTO(updatedWord);
+
+        WordResponseDTO responseDTO = convertToResponseDTO(updatedWord);
+        if (request.getRelatedWordIds() != null) {
+            // update persisted related ids as requested
+            updatedWord.setRelatedWordIds(request.getRelatedWordIds());
+            wordRepo.save(updatedWord);
+            List<WordResponseDTO.RelatedWord> related = new ArrayList<>();
+            for (Long relatedId : request.getRelatedWordIds()) {
+                wordRepo.findById(relatedId).ifPresent(rw -> related.add(new WordResponseDTO.RelatedWord(rw.getId(), rw.getWord())));
+                if (related.stream().noneMatch(r -> r.getId().equals(relatedId))) {
+                    related.add(new WordResponseDTO.RelatedWord(relatedId, null));
+                }
+            }
+            responseDTO.setRelatedWordIds(related);
+        }
+
+        return responseDTO;
     }
 
     @Override
@@ -384,12 +407,20 @@ public class WordServiceImpl implements WordService {
         responseDTO.setDescription(word.getDescription());
         responseDTO.setSourceAndCredits(parseSourceCredits(word.getSourceCreditsJson()));
 
-        // related words
-        // List<com.example.WordGame.Entities.WordRelation> relations = wordRelationRepo.findByWordId(word.getId());
-        // List<WordResponseDTO.RelatedWord> related = relations.stream()
-        //         .map(r -> new WordResponseDTO.RelatedWord(r.getRelatedWord().getId(), r.getRelatedWord().getWord()))
-        //         .collect(Collectors.toList());
-        // responseDTO.setRelatedWordIds(related);
+        // related words - read persisted related IDs and resolve titles when possible
+        List<Long> relatedIds = word.getRelatedWordIds();
+        if (relatedIds == null || relatedIds.isEmpty()) {
+            responseDTO.setRelatedWordIds(Collections.emptyList());
+        } else {
+            List<WordResponseDTO.RelatedWord> related = new ArrayList<>();
+            for (Long rid : relatedIds) {
+                wordRepo.findById(rid).ifPresentOrElse(
+                        rw -> related.add(new WordResponseDTO.RelatedWord(rw.getId(), rw.getWord())),
+                        () -> related.add(new WordResponseDTO.RelatedWord(rid, null))
+                );
+            }
+            responseDTO.setRelatedWordIds(related);
+        }
 
         // alsoAppearsIn
         responseDTO.setAlsoAppearsIn(parseAlsoAppearsIn(word.getAlsoAppearsInJson()));

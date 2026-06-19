@@ -55,6 +55,9 @@ public class Word {
     @Column(name = "also_appears_in", columnDefinition = "TEXT")
     private String alsoAppearsInJson;
 
+    @Column(name = "related_word_ids", columnDefinition = "TEXT")
+    private String relatedWordIdsJson;
+
     @Column(name = "view_count")
     private Integer viewCount = 0;
 
@@ -103,6 +106,25 @@ public class Word {
             this.imagesJson = mapper.writeValueAsString(images);
         } catch (Exception e) {
             this.imagesJson = null;
+        }
+    }
+
+    public List<Long> getRelatedWordIds() {
+        if (this.relatedWordIdsJson == null || this.relatedWordIdsJson.isBlank()) return new ArrayList<>();
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            return mapper.readValue(this.relatedWordIdsJson, new TypeReference<List<Long>>(){});
+        } catch (Exception e) {
+            return new ArrayList<>();
+        }
+    }
+
+    public void setRelatedWordIds(List<Long> ids) {
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            this.relatedWordIdsJson = mapper.writeValueAsString(ids);
+        } catch (Exception e) {
+            this.relatedWordIdsJson = null;
         }
     }
 }
