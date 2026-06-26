@@ -63,6 +63,17 @@ public class WordServiceImpl implements WordService {
         return new PageImpl<>(dtos, pageable, wordsPage.getTotalElements());
     }
 
+    @Override
+    public Page<WordResponseDTO> searchWords(String q, Pageable pageable) {
+        log.info("🔎 Searching words for query '{}' - page {} size {}", q, pageable.getPageNumber(), pageable.getPageSize());
+        if (q == null || q.isBlank()) {
+            return Page.empty(pageable);
+        }
+        Page<Word> wordsPage = wordRepo.findByWordIgnoreCaseContaining(q.trim(), pageable);
+        List<WordResponseDTO> dtos = wordsPage.getContent().stream().map(this::convertToResponseDTO).collect(Collectors.toList());
+        return new PageImpl<>(dtos, pageable, wordsPage.getTotalElements());
+    }
+
     // ✅ Existing methods below...
 
     @Override
@@ -115,6 +126,16 @@ public class WordServiceImpl implements WordService {
         // alsoAppearsIn
         responseDTO.setAlsoAppearsIn(parseAlsoAppearsIn(word.getAlsoAppearsInJson()));
 
+        // quiz modes
+        responseDTO.setQuizModes(mapQuizModes(word.getQuizModes()));
+
+        // // quiz modes
+        // if (word.getQuizModes() == null || word.getQuizModes().isEmpty()) {
+        //     responseDTO.setQuizModes(java.util.List.of());
+        // } else {
+        //     responseDTO.setQuizModes(word.getQuizModes().stream().map(Enum::name).toList());
+        // }
+
         return responseDTO;
     }
 
@@ -135,6 +156,7 @@ public class WordServiceImpl implements WordService {
     })
     public WordResponseDTO createWord(WordRequestDTO request) {
         log.info("📝 Creating new word: {} - Will clear cache", request.getWord());
+        log.info("📝 createWord received quizModes: {}", request.getQuizModes());
 
         // validate required fields
         if (request.getWord() == null || request.getWord().isBlank()) {
@@ -168,6 +190,17 @@ public class WordServiceImpl implements WordService {
         if (images != null) word.setImages(images);
         word.setFactsJson(resolveFactsJson(request));
         word.setExamplesJson(resolveExamplesJson(request));
+        // quiz modes
+        if (request.getQuizModes() != null && !request.getQuizModes().isEmpty()) {
+            java.util.Set<com.example.WordGame.modules.words.QuizMode> modes = new java.util.LinkedHashSet<>();
+            for (String m : request.getQuizModes()) {
+                try {
+                    modes.add(com.example.WordGame.modules.words.QuizMode.valueOf(m.trim().toUpperCase()));
+                } catch (Exception ignored) {}
+            }
+            word.setQuizModes(modes);
+            log.info("📝 Persisting quizModes for word (to save): {}", word.getQuizModes());
+        }
         // persist related ids if provided
         if (request.getRelatedWordIds() != null && !request.getRelatedWordIds().isEmpty()) {
             word.setRelatedWordIds(request.getRelatedWordIds());
@@ -207,6 +240,7 @@ public class WordServiceImpl implements WordService {
 
         // build response DTO
         WordResponseDTO responseDTO = convertToResponseDTO(savedWord);
+        log.info("📝 createWord returning response quizModes: {}", responseDTO.getQuizModes());
 
         log.info("✅ Word created successfully with ID: {}", savedWord.getId());
         return responseDTO;
@@ -221,6 +255,7 @@ public class WordServiceImpl implements WordService {
     })
     public WordResponseDTO updateWord(Long id, WordRequestDTO request) {
         log.info("📝 Updating word {} - Will clear cache", id);
+        log.info("📝 updateWord received quizModes: {}", request.getQuizModes());
         
         Word word = wordRepo.findById(id)
                 .orElseThrow(() -> new ApiException("Word not found with id: " + id));
@@ -270,6 +305,15 @@ public class WordServiceImpl implements WordService {
             word.setExamplesJson(serializeExamples(request.getExamples()));
         }
 
+        if (request.getQuizModes() != null) {
+            java.util.Set<com.example.WordGame.modules.words.QuizMode> modes = new java.util.LinkedHashSet<>();
+            for (String m : request.getQuizModes()) {
+                try { modes.add(com.example.WordGame.modules.words.QuizMode.valueOf(m.trim().toUpperCase())); } catch (Exception ignored) {}
+            }
+            word.setQuizModes(modes);
+            log.info("📝 updateWord set quizModes on entity: {}", word.getQuizModes());
+        }
+
         // if (request.getExamples() != null) {
         //     List<WordExample> existingExamples = wordExampleRepo.findByWord(word);
         //     wordExampleRepo.deleteAll(existingExamples);
@@ -303,6 +347,7 @@ public class WordServiceImpl implements WordService {
         log.info("✅ Word updated successfully");
 
         WordResponseDTO responseDTO = convertToResponseDTO(updatedWord);
+        log.info("📝 updateWord returning response quizModes: {}", responseDTO.getQuizModes());
         if (request.getRelatedWordIds() != null) {
             // update persisted related ids as requested
             updatedWord.setRelatedWordIds(request.getRelatedWordIds());
@@ -393,6 +438,7 @@ public class WordServiceImpl implements WordService {
     }
 
     private WordResponseDTO convertToResponseDTO(Word word) {
+        log.info("🔁 convertToResponseDTO wordId={} quizModes={}", word.getId(), word.getQuizModes());
         WordResponseDTO responseDTO = new WordResponseDTO();
         responseDTO.setId(word.getId());
         responseDTO.setWord(word.getWord());
@@ -406,6 +452,8 @@ public class WordServiceImpl implements WordService {
         responseDTO.setUpdated(formatDateTime(word.getUpdatedAt()));
         responseDTO.setDescription(word.getDescription());
         responseDTO.setSourceAndCredits(parseSourceCredits(word.getSourceCreditsJson()));
+
+        responseDTO.setQuizModes(mapQuizModes(word.getQuizModes()));
 
         // related words - read persisted related IDs and resolve titles when possible
         List<Long> relatedIds = word.getRelatedWordIds();
@@ -425,7 +473,19 @@ public class WordServiceImpl implements WordService {
         // alsoAppearsIn
         responseDTO.setAlsoAppearsIn(parseAlsoAppearsIn(word.getAlsoAppearsInJson()));
 
+        log.info("🔁 convertToResponseDTO returning quizModes={} for wordId={}", responseDTO.getQuizModes(), word.getId());
         return responseDTO;
+    }
+
+    private List<String> mapQuizModes(Set<com.example.WordGame.modules.words.QuizMode> quizModes) {
+        if (quizModes == null || quizModes.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return quizModes.stream()
+                .filter(Objects::nonNull)
+                .map(Enum::name)
+                .sorted()
+                .toList();
     }
 
     private List<String> resolveImagesJson(WordRequestDTO request) {
@@ -580,7 +640,15 @@ public class WordServiceImpl implements WordService {
         try {
             List<Map<String, Long>> raw = objectMapper.readValue(json, new TypeReference<List<Map<String, Long>>>() {});
             return raw.stream()
-                    .map(m -> new WordResponseDTO.AlsoAppearsIn(m.getOrDefault("categoryId", null), m.getOrDefault("wordId", null)))
+                    .map(m -> {
+                        Long cid = m.getOrDefault("categoryId", null);
+                        Long wid = m.getOrDefault("wordId", null);
+                        String cname = null;
+                        if (cid != null) {
+                            cname = categoryRepo.findById(cid).map(cat -> cat.getName()).orElse(null);
+                        }
+                        return new WordResponseDTO.AlsoAppearsIn(cid, wid, cname);
+                    })
                     .collect(Collectors.toList());
         } catch (Exception e) {
             log.warn("Failed to parse alsoAppearsIn JSON: {}", e.getMessage());

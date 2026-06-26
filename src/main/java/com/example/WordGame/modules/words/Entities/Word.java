@@ -14,6 +14,7 @@ import com.example.WordGame.modules.category.Entities.Category;
 import com.example.WordGame.modules.quiz.Entities.QuizQuestion;
 import com.example.WordGame.modules.roles.UserShare;
 import com.example.WordGame.modules.savedwords.Entities.UserSavedWord;
+import com.example.WordGame.modules.words.QuizMode;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -78,6 +79,12 @@ public class Word {
 
     @OneToMany(mappedBy = "word", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<UserShare> shares = new ArrayList<>();
+
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "word_quiz_modes", joinColumns = @JoinColumn(name = "word_id"))
+    @Enumerated(EnumType.STRING)
+    @Column(name = "mode")
+    private java.util.Set<QuizMode> quizModes = new java.util.LinkedHashSet<>();
 
     // @OneToMany(mappedBy = "word", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     // private List<WordRelation> outgoingRelations = new ArrayList<>();

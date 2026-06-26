@@ -5,10 +5,10 @@ import com.example.WordGame.modules.genre.Entities.Genre;
 
 import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.stereotype.Repository;
+// import org.springframework.stereotype.Repository;
 import java.util.Optional;
 
-@Repository
+// @Repository
 public interface CategoryRepo extends JpaRepository<Category, Long> {
     Optional<Category> findByName(String name);
 

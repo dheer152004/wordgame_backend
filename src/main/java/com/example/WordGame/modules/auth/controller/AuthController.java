@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.*;
 import jakarta.validation.Valid;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import com.example.WordGame.modules.roles.user.Entities.User;
+import com.example.WordGame.modules.auth.DTO.OAuthRequest;
 
 @RestController
 @RequestMapping(value = "/api/auth", produces = "application/json")
@@ -73,6 +74,11 @@ public class AuthController {
                 "username", user.getUsername(),
                 "roles", user.getRoles() == null ? java.util.List.of() : user.getRoles().stream().map(Enum::name).toList()
         ));
+    }
+
+    @PostMapping("/oauth")
+    public ResponseEntity<LoginResponseDTO> oauth(@RequestBody OAuthRequest req) {
+        return ResponseEntity.ok(authService.oauthLogin(req.getProvider(), req.getToken()));
     }
 
 }

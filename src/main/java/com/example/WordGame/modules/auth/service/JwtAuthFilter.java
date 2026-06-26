@@ -35,6 +35,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
             final String requestTokenHeader = request.getHeader("Authorization");
             if (requestTokenHeader == null) {
+                log.debug("no Authorization header, allowing anonymous request");
                 filterChain.doFilter(request, response);
                 return;
             }
@@ -54,12 +55,14 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
             if (token == null || token.isBlank()) {
                 // token missing after Bearer
+                log.warn("Authorization header contained Bearer but no token");
                 response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Missing or empty Bearer token");
                 return;
             }
             // Check blacklist
             TokenBlacklistService tokenBlacklistService = getBean(TokenBlacklistService.class, request);
             if (tokenBlacklistService != null && tokenBlacklistService.isBlacklisted(token)) {
+                log.warn("Rejected request because token is blacklisted");
                 response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Token is blacklisted");
                 return;
             }
@@ -67,6 +70,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
                 User user = userRepository.findByUsername(username).orElse(null);
                 if (user == null) {
+                    log.warn("User not found for token subject: {}", username);
                     response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "User not found for token subject");
                     return;
                 }

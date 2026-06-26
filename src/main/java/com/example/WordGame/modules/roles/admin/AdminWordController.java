@@ -4,6 +4,7 @@ import com.example.WordGame.modules.words.DTO.*;
 import com.example.WordGame.modules.words.service.WordService;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -14,6 +15,7 @@ import java.util.Map;
 @RestController
 @RequestMapping(value = "/api/admin/words", produces = "application/json")
 @RequiredArgsConstructor
+@Slf4j
 @CrossOrigin(origins = "*")
 public class AdminWordController {
 
@@ -22,6 +24,7 @@ public class AdminWordController {
     @PostMapping
     public ResponseEntity<WordResponseDTO> createWord(
         @ModelAttribute WordRequestDTO request) {
+        log.info("[Admin] createWord (form) received quizModes: {}", request.getQuizModes());
         WordResponseDTO word = wordService.createWord(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(word);
     }
@@ -30,6 +33,7 @@ public class AdminWordController {
     @PostMapping(consumes = "application/json")
     public ResponseEntity<WordResponseDTO> createWordJson(
             @RequestBody WordRequestDTO request) {
+                log.info("[Admin] createWordJson received quizModes: {}", request.getQuizModes());
                 WordResponseDTO word = wordService.createWord(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(word);
     }

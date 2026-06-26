@@ -18,6 +18,7 @@ public class WordRequestDTO {
     private List<String> facts;
     private List<String> examples;
     private List<Long> relatedWordIds;
+    private java.util.List<String> quizModes;
     private List<Map<String, Long>> alsoAppearsIn;
     @JsonProperty("source&credits")
     private SourceCreditsDTO sourceAndCredits;

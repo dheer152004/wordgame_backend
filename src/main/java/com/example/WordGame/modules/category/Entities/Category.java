@@ -32,7 +32,7 @@ public class Category {
     private String name;
 
     @Column(name = "image_url", length = 500)
-    private String imageUrl;  // Cloudflare R2 URL
+    private String imageUrl;
 
     @Column(length = 500)
     private String description;

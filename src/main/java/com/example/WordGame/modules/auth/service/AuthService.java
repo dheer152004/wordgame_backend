@@ -19,8 +19,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.beans.factory.annotation.Value;
 
 import java.time.LocalDateTime;
-import java.util.Set;
-import com.example.WordGame.modules.roles.Role;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.util.Base64;
+import java.util.Map;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.nio.charset.StandardCharsets;
+import java.io.InputStream;
 
 @Service
 @RequiredArgsConstructor
@@ -61,8 +66,9 @@ public class AuthService {
                 // .avatarUrl(user.getAvatarUrl())
                 // .totalXp(user.getTotalXp())
                 // .level(user.getLevel())
-            // .currentStreak(user.getCurrentStreak())
-            .roles(user.getRoles() == null ? java.util.List.of() : user.getRoles().stream().map(Enum::name).toList())
+                // .currentStreak(user.getCurrentStreak())
+                .roles(user.getRoles() == null ? java.util.List.of() : user.getRoles().stream().map(Enum::name).toList())
+                .provider("email")
                 .build();
     }
 
@@ -152,5 +158,146 @@ public class AuthService {
             java.util.Date exp = authUtil.getExpirationDateFromToken(token);
             tokenBlacklistService.blacklistToken(token, exp);
         } catch (Exception ignored) {}
+    }
+
+    public LoginResponseDTO oauthLogin(String providerStr, String token) {
+        if (providerStr == null || token == null) throw new ApiException("Provider and token required");
+        com.example.WordGame.modules.auth.Provider provider;
+        try {
+            provider = com.example.WordGame.modules.auth.Provider.valueOf(providerStr.trim().toUpperCase());
+        } catch (Exception ex) {
+            throw new ApiException("Unsupported provider: " + providerStr);
+        }
+
+        Map<String, Object> profile = null;
+        // For Google and Apple, prefer signature-verified id_token
+        try {
+            if (provider == com.example.WordGame.modules.auth.Provider.GOOGLE) {
+                String jwks = "https://www.googleapis.com/oauth2/v3/certs";
+                JwtVerifier verifier = new JwtVerifier(jwks);
+                profile = verifier.verifyAndGetClaims(token);
+            } else if (provider == com.example.WordGame.modules.auth.Provider.APPLE) {
+                String jwks = "https://appleid.apple.com/auth/keys";
+                JwtVerifier verifier = new JwtVerifier(jwks);
+                profile = verifier.verifyAndGetClaims(token);
+            } else {
+                profile = fetchProfile(provider, token);
+            }
+        } catch (Exception ex) {
+            log.warn("Signature verification failed or not applicable, falling back to HTTP verification: {}", ex.getMessage());
+            profile = fetchProfile(provider, token);
+        }
+        if (profile == null || profile.get("email") == null) {
+            throw new ApiException("Unable to verify token with provider: " + provider.name());
+        }
+
+        String email = (String) profile.get("email");
+        String displayName = (String) profile.getOrDefault("name", (String) profile.getOrDefault("displayName", null));
+        String avatar = (String) profile.getOrDefault("picture", null);
+
+        // Find or create user by email
+        User user = userRepository.findByEmail(email).orElse(null);
+        if (user == null) {
+            user = new User();
+            // generate username from email prefix + provider
+            String username = email.contains("@") ? email.substring(0, email.indexOf('@')) : email;
+            username = username + "_" + provider.name().toLowerCase();
+            // ensure uniqueness
+            String base = username;
+            int i = 1;
+            while (userRepository.existsByUsername(username)) {
+                username = base + i++;
+            }
+            user.setUsername(username);
+            user.setEmail(email);
+            user.setPassword(passwordEncoder.encode(java.util.UUID.randomUUID().toString()));
+            user.setDisplayName(displayName != null ? displayName : username);
+            user.setAvatarUrl(avatar != null ? avatar : "https://ui-avatars.com/api/?background=random&name=" + username);
+            user.setProvider(provider);
+            java.util.Set<com.example.WordGame.modules.roles.Role> roles = new java.util.LinkedHashSet<>();
+            roles.add(com.example.WordGame.modules.roles.Role.USER);
+            user.setRoles(roles);
+            userRepository.save(user);
+        } else {
+            // update profile info
+            if (displayName != null) user.setDisplayName(displayName);
+            if (avatar != null) user.setAvatarUrl(avatar);
+            // persist provider if not already set or different
+            if (user.getProvider() == null || user.getProvider() != provider) {
+                user.setProvider(provider);
+            }
+            user.setLastActive(LocalDateTime.now());
+            userRepository.save(user);
+        }
+
+        String jwt = authUtil.generateToken(user);
+
+        return LoginResponseDTO.builder()
+                .token(jwt)
+                .id(user.getId())
+                .username(user.getUsername())
+                .email(user.getEmail())
+                .displayName(user.getDisplayName())
+            .roles(user.getRoles() == null ? java.util.List.of() : user.getRoles().stream().map(Enum::name).toList())
+            .provider(provider.name().toLowerCase())
+                .build();
+    }
+
+    private Map<String, Object> fetchProfile(com.example.WordGame.modules.auth.Provider provider, String token) {
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            if (provider == com.example.WordGame.modules.auth.Provider.GOOGLE) {
+                // Verify Google id_token via tokeninfo endpoint
+                String url = "https://oauth2.googleapis.com/tokeninfo?id_token=" + java.net.URLEncoder.encode(token, StandardCharsets.UTF_8);
+                HttpURLConnection conn = (HttpURLConnection) new URL(url).openConnection();
+                conn.setRequestMethod("GET");
+                conn.setConnectTimeout(5000);
+                conn.setReadTimeout(5000);
+                try (InputStream is = conn.getInputStream()) {
+                    Map<String, Object> resp = mapper.readValue(is, Map.class);
+                    // tokeninfo returns 'email', 'name', 'picture', 'sub'
+                    return Map.of(
+                            "email", resp.get("email"),
+                            "name", resp.get("name"),
+                            "picture", resp.get("picture"),
+                            "id", resp.get("sub")
+                    );
+                }
+            } else if (provider == com.example.WordGame.modules.auth.Provider.MICROSOFT) {
+                // Use Microsoft Graph to fetch profile with access token
+                URL url = new URL("https://graph.microsoft.com/v1.0/me");
+                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("GET");
+                conn.setRequestProperty("Authorization", "Bearer " + token);
+                conn.setRequestProperty("Accept", "application/json");
+                conn.setConnectTimeout(5000);
+                conn.setReadTimeout(5000);
+                try (InputStream is = conn.getInputStream()) {
+                    Map<String, Object> resp = mapper.readValue(is, Map.class);
+                    // resp contains id, displayName, userPrincipalName
+                    return Map.of(
+                            "email", resp.getOrDefault("mail", resp.getOrDefault("userPrincipalName", null)),
+                            "name", resp.get("displayName"),
+                            "id", resp.get("id")
+                    );
+                }
+            } else if (provider == com.example.WordGame.modules.auth.Provider.APPLE) {
+                // Apple gives id_token (JWT). Decode payload without signature verification to extract email/sub
+                String[] parts = token.split("\\.");
+                if (parts.length < 2) return null;
+                byte[] decoded = Base64.getUrlDecoder().decode(parts[1]);
+                String payload = new String(decoded, StandardCharsets.UTF_8);
+                Map<String, Object> resp = mapper.readValue(payload, Map.class);
+                return Map.of(
+                        "email", resp.get("email"),
+                        "name", resp.get("name"),
+                        "id", resp.get("sub")
+                );
+            }
+        } catch (ApiException ae) { throw ae; }
+        catch (Exception ex) {
+            log.error("OAuth profile fetch error", ex);
+        }
+        return null;
     }
 }

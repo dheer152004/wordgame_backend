@@ -1,0 +1,66 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "WordGame Auth API",
+    "version": "1.0.0",
+    "description": "OAuth login endpoint for Google, Microsoft, Apple and email login"
+  },
+  "paths": {
+    "/api/auth/oauth": {
+      "post": {
+        "summary": "OAuth login",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "provider": {"type": "string", "enum": ["google","microsoft","apple","email"]},
+                  "token": {"type": "string"}
+                },
+                "required": ["provider","token"]
+              },
+              "example": {
+                "provider": "google",
+                "token": "<GOOGLE_ID_TOKEN>"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Login successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "token": {"type": "string"},
+                    "id": {"type": "integer"},
+                    "username": {"type": "string"},
+                    "email": {"type": "string"},
+                    "displayName": {"type": "string"},
+                    "roles": {"type": "array","items": {"type": "string"}},
+                    "provider": {"type": "string"}
+                  }
+                },
+                "example": {
+                  "token": "eyJhbGciOi...",
+                  "id": 123,
+                  "username": "alice_google",
+                  "email": "alice@example.com",
+                  "displayName": "Alice Example",
+                  "roles": ["USER"],
+                  "provider": "google"
+                }
+              }
+            }
+          },
+          "400": { "description": "Bad request" },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    }
+  }
+}

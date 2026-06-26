@@ -24,6 +24,7 @@ public class WordDetailResponseDTO {
     private List<String> images;
     private List<String> facts;
     private List<String> examples;
+    private java.util.List<String> quizModes;
     private List<WordResponseDTO.RelatedWord> relatedWordIds = new java.util.ArrayList<>();
     private List<WordResponseDTO.AlsoAppearsIn> alsoAppearsIn = new java.util.ArrayList<>();
     private String created;

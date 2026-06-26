@@ -47,4 +47,7 @@ public interface WordRepo extends JpaRepository<Word, Long> {
     // Alternative: Using TABLESAMPLE for better performance on large tables (PostgreSQL 9.5+)
     @Query(value = "SELECT * FROM words TABLESAMPLE SYSTEM(5) LIMIT :limit", nativeQuery = true)
     List<Word> findRandomWordsSampling(@Param("limit") int limit);
+
+    // Search by word (case-insensitive, partial match)
+    Page<Word> findByWordIgnoreCaseContaining(String word, Pageable pageable);
 }

@@ -2,7 +2,6 @@ package com.example.WordGame.modules.roles.user.Entities;
 
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.springframework.security.core.GrantedAuthority;
@@ -14,6 +13,7 @@ import com.example.WordGame.modules.roles.Role;
 import com.example.WordGame.modules.roles.UserShare;
 import com.example.WordGame.modules.roles.UserStatistics;
 import com.example.WordGame.modules.savedwords.Entities.UserSavedWord;
+import com.example.WordGame.modules.auth.Provider;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -109,6 +109,10 @@ public class User  implements UserDetails {
     @CollectionTable(name = "user_roles", joinColumns = @JoinColumn(name = "user_id"))
     @Enumerated(EnumType.STRING)
     private Set<Role> roles = new HashSet<>();
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "provider", length = 20)
+    private Provider provider;
 
     // UserDetails interface methods
     @Override

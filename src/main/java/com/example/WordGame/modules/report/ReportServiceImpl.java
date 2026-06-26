@@ -16,6 +16,7 @@ import java.util.stream.Collectors;
 public class ReportServiceImpl implements ReportService {
 
     private final ReportRepo reportRepo;
+    private final com.example.WordGame.modules.roles.user.repository.UserRepository userRepository;
 
     private static final DateTimeFormatter DTF = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
 
@@ -29,6 +30,21 @@ public class ReportServiceImpl implements ReportService {
         }
         report.setDescription(request.getDescription());
         if (request.getScreenshotUrls() != null) report.setScreenshotUrls(request.getScreenshotUrls());
+
+        // attach reporter info from security context if available
+        try {
+            org.springframework.security.core.Authentication auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+            if (auth != null && auth.isAuthenticated()) {
+                String principalName = auth.getName();
+                if (principalName != null) {
+                    userRepository.findByUsername(principalName).ifPresent(u -> {
+                        report.setReportedById(u.getId());
+                        report.setReportedByEmail(u.getEmail());
+                        report.setReportedByUsername(u.getUsername());
+                    });
+                }
+            }
+        } catch (Exception ignored) {}
 
         Report saved = reportRepo.save(report);
         return toDto(saved);
@@ -61,6 +77,10 @@ public class ReportServiceImpl implements ReportService {
         dto.setScreenshotUrls(r.getScreenshotUrls());
         dto.setCreatedAt(r.getCreatedAt() != null ? r.getCreatedAt().format(DTF) : null);
         dto.setResolved(r.isResolved());
+        if (r.getReportedById() != null || r.getReportedByEmail() != null || r.getReportedByUsername() != null) {
+            ReportResponseDTO.ReportMadeBy by = new ReportResponseDTO.ReportMadeBy(r.getReportedById(), r.getReportedByEmail(), r.getReportedByUsername());
+            dto.setReportMadeBy(by);
+        }
         return dto;
     }
 

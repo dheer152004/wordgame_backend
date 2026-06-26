@@ -10,13 +10,16 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-import org.springframework.web.servlet.HandlerExceptionResolver;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
+// import org.springframework.web.servlet.HandlerExceptionResolver;
 import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 
 import com.example.WordGame.modules.auth.service.JwtAuthFilter;
 
 @Configuration
 @RequiredArgsConstructor
+@Slf4j
 @EnableMethodSecurity
 @EnableWebMvc
 public class WebSecurityConfig {
@@ -24,8 +27,8 @@ public class WebSecurityConfig {
     private final JwtAuthFilter jwtAuthFilter;
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity httpSecurity) throws Exception {
-
+    public SecurityFilterChain securityFilterChain(HttpSecurity httpSecurity,
+                                                   ObjectProvider<ClientRegistrationRepository> clientRegistrationRepositoryProvider) throws Exception {
 
         httpSecurity
                 .csrf(csrfConfig -> csrfConfig.disable())
@@ -34,6 +37,7 @@ public class WebSecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         // Public endpoints - no authentication required
                         .requestMatchers("/api/auth/**").permitAll()  // Login, Register
+                        .requestMatchers("/api/v1/login").permitAll()
                         // allow public reads of genres
                         .requestMatchers(HttpMethod.GET, "/api/genres/**").permitAll()
                         // Only admins can create admin-scoped resources
@@ -47,14 +51,29 @@ public class WebSecurityConfig {
                                 "/v3/api-docs/**",
                                 "/swagger-ui.html"
                         ).permitAll()
+
+
                         .requestMatchers("/h2-console/**").permitAll()
                         .requestMatchers("/public/**").permitAll()
+
+                        
+                        // Allow OAuth2 authorization endpoints (used by Spring Security)
+                        .requestMatchers("/oauth2/authorization/**").permitAll()
+                        .requestMatchers("/login/oauth2/**").permitAll()
+                        .requestMatchers("/oauth2/**").permitAll()
 
                         // All other endpoints require authentication
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
                 .headers(headers -> headers.frameOptions(frame -> frame.sameOrigin()));
+
+        // Only configure oauth2Login if a ClientRegistrationRepository is present (i.e., oauth2 client is configured)
+        if (clientRegistrationRepositoryProvider.getIfAvailable() != null) {
+            httpSecurity.oauth2Login(oAuth2 -> oAuth2.failureHandler((request, response, exception) -> {
+                log.error("OAuth2 error: {}", exception.getMessage());
+            }));
+        }
 
         return httpSecurity.build();
     }

@@ -36,6 +36,16 @@ public class Report {
     @Builder.Default
     private boolean isResolved = false;
 
+    // Reporter info
+    @Column(name = "reported_by_id")
+    private Long reportedById;
+
+    @Column(name = "reported_by_email", length = 255)
+    private String reportedByEmail;
+
+    @Column(name = "reported_by_username", length = 100)
+    private String reportedByUsername;
+
     @PrePersist
     public void prePersist() {
         if (createdAt == null) createdAt = LocalDateTime.now();

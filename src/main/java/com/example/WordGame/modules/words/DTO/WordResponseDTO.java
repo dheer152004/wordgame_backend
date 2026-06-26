@@ -25,6 +25,7 @@ public class WordResponseDTO {
     private String description;
     private List<String> facts;
     private List<String> examples;
+    private java.util.List<String> quizModes;
     private List<RelatedWord> relatedWordIds = new java.util.ArrayList<>();
     private List<AlsoAppearsIn> alsoAppearsIn = new java.util.ArrayList<>();
     @JsonProperty("source&credits")
@@ -46,5 +47,6 @@ public class WordResponseDTO {
     public static class AlsoAppearsIn {
         private Long categoryId;
         private Long wordId;
+        private String categoryName;
     }
 }
