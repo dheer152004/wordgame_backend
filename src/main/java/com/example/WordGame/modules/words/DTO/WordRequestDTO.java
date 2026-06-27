@@ -12,6 +12,7 @@ public class WordRequestDTO {
     private String meaning;
     private String description;
     private Long categoryId;
+    private Long displayOrder;
     private List<MultipartFile> wordImages;
     private List<String> imageUrls;
     

@@ -63,11 +63,27 @@ public class AdminWordController {
         return ResponseEntity.ok(word);
     }
 
+    @PatchMapping(path = "/{id}", consumes = "application/json")
+    public ResponseEntity<WordResponseDTO> patchWordJson(
+            @PathVariable Long id,
+            @RequestBody WordRequestDTO request) {
+        WordResponseDTO word = wordService.updateWord(id, request);
+        return ResponseEntity.ok(word);
+    }
+
     @PatchMapping("/{id}")
     public ResponseEntity<WordResponseDTO> patchWord(
             @PathVariable Long id,
             @ModelAttribute WordRequestDTO request) {
         WordResponseDTO word = wordService.updateWord(id, request);
+        return ResponseEntity.ok(word);
+    }
+
+    @PatchMapping(path = "/{id}/display-order", consumes = "application/json")
+    public ResponseEntity<WordResponseDTO> updateDisplayOrder(
+            @PathVariable Long id,
+            @RequestBody WordRequestDTO request) {
+        WordResponseDTO word = wordService.updateWordDisplayOrder(id, request.getDisplayOrder());
         return ResponseEntity.ok(word);
     }
 

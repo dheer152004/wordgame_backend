@@ -21,6 +21,7 @@ public class WordResponseDTO {
     private String word;
     private Long categoryId;
     private String meaning;
+    private Long displayOrder;
     private List<String> images;
     private String description;
     private List<String> facts;

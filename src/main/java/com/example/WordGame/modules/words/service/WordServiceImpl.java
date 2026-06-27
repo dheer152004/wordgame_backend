@@ -119,6 +119,7 @@ public class WordServiceImpl implements WordService {
         responseDTO.setExamples(parseExamples(word.getExamplesJson()));
         responseDTO.setCreated(formatDateTime(word.getCreatedAt()));
         responseDTO.setUpdated(formatDateTime(word.getUpdatedAt()));
+        responseDTO.setDisplayOrder(word.getDisplayOrder());
 
         // related words: not implemented - return empty list for now
         responseDTO.setRelatedWordIds(Collections.emptyList());
@@ -184,6 +185,11 @@ public class WordServiceImpl implements WordService {
             word.setSourceCreditsJson(serializeSourceCredits(request.getSourceAndCredits()));
         }
         word.setCategory(category);
+        if (request.getDisplayOrder() != null) {
+            word.setDisplayOrder(request.getDisplayOrder());
+        } else {
+            word.setDisplayOrder(deriveNextDisplayOrder(category));
+        }
         word.setCreatedAt(LocalDateTime.now());
         word.setUpdatedAt(LocalDateTime.now());
         List<String> images = resolveImagesJson(request);
@@ -305,6 +311,11 @@ public class WordServiceImpl implements WordService {
             word.setExamplesJson(serializeExamples(request.getExamples()));
         }
 
+        if (request.getDisplayOrder() != null) {
+            word.setDisplayOrder(request.getDisplayOrder());
+            log.info("📝 updateWord set displayOrder on entity: {}", word.getDisplayOrder());
+        }
+
         if (request.getQuizModes() != null) {
             java.util.Set<com.example.WordGame.modules.words.QuizMode> modes = new java.util.LinkedHashSet<>();
             for (String m : request.getQuizModes()) {
@@ -363,6 +374,34 @@ public class WordServiceImpl implements WordService {
         }
 
         return responseDTO;
+    }
+
+    @Override
+    @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = "words", allEntries = true),
+            @CacheEvict(value = "wordDetails", key = "#id"),
+            @CacheEvict(value = "randomWords", allEntries = true)  // Clear random words cache
+    })
+    public WordResponseDTO updateWordDisplayOrder(Long id, Long displayOrder) {
+        log.info("📝 Updating displayOrder for word {} to {}", id, displayOrder);
+        if (displayOrder == null) {
+            throw new ApiException("displayOrder is required");
+        }
+        Word word = wordRepo.findById(id)
+                .orElseThrow(() -> new ApiException("Word not found with id: " + id));
+        word.setDisplayOrder(displayOrder);
+        word.setUpdatedAt(LocalDateTime.now());
+        Word updatedWord = wordRepo.save(word);
+        return convertToResponseDTO(updatedWord);
+    }
+
+    public long deriveNextDisplayOrder(Category category) {
+        Long maxOrder = wordRepo.findMaxDisplayOrderByCategory(category);
+        if (maxOrder == null || maxOrder < 10000L) {
+            return 10000L;
+        }
+        return maxOrder + 10000L;
     }
 
     @Override
@@ -452,6 +491,7 @@ public class WordServiceImpl implements WordService {
         responseDTO.setUpdated(formatDateTime(word.getUpdatedAt()));
         responseDTO.setDescription(word.getDescription());
         responseDTO.setSourceAndCredits(parseSourceCredits(word.getSourceCreditsJson()));
+        responseDTO.setDisplayOrder(word.getDisplayOrder());
 
         responseDTO.setQuizModes(mapQuizModes(word.getQuizModes()));
 

@@ -18,6 +18,7 @@ public class WordDetailResponseDTO {
     private String word;
     private Long categoryId;
     private String meaning;
+    private Long displayOrder;
     private String description;
     @com.fasterxml.jackson.annotation.JsonProperty("source&credits")
     private com.example.WordGame.modules.words.DTO.SourceCreditsDTO sourceAndCredits;

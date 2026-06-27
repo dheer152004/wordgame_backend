@@ -17,6 +17,7 @@ public interface WordService {
     WordResponseDTO getWordById(Long id);
     WordResponseDTO createWord(WordRequestDTO request);
     WordResponseDTO updateWord(Long id, WordRequestDTO request);
+    WordResponseDTO updateWordDisplayOrder(Long id, Long displayOrder);
     void deleteWord(Long id);
     WordResponseDTO toggleWordStatus(Long id);
     WordResponseDTO getWordResponseDTO(Long id);

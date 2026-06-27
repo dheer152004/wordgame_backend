@@ -28,7 +28,7 @@ public class WordController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
 
-        Pageable pageable = PageRequest.of(page, size);
+        Pageable pageable = PageRequest.of(page, size, org.springframework.data.domain.Sort.by("displayOrder").ascending());
         Page<WordResponseDTO> wordsPage = wordService.getWordsByCategory(categoryName, pageable);
 
         Map<String, Object> response = new HashMap<>();

@@ -19,7 +19,9 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 @Entity
-@Table(name = "words")
+@Table(name = "words", indexes = {
+        @Index(name = "idx_category_display_order", columnList = "category_id, display_order")
+})
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
@@ -64,6 +66,9 @@ public class Word {
 
     @Column(name = "share_count")
     private Integer shareCount = 0;
+
+    @Column(name = "display_order")
+    private Long displayOrder;
 
     @Column(name = "created_at")
     private LocalDateTime createdAt = LocalDateTime.now();

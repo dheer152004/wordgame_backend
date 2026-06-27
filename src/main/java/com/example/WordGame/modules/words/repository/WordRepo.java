@@ -18,6 +18,9 @@ public interface WordRepo extends JpaRepository<Word, Long> {
 
     Page<Word> findByCategory(Category category, Pageable pageable);
 
+    @Query("SELECT COALESCE(MAX(w.displayOrder), 0) FROM Word w WHERE w.category = :category")
+    Long findMaxDisplayOrderByCategory(@Param("category") Category category);
+
     List<Word> findAllByCategoryId(Long categoryId);
 
     Optional<Word> findByWord(String word);

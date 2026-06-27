@@ -1,4 +1,4 @@
-package com.example.WordGame.modules.words.service;
+﻿package com.example.WordGame.modules.words.service;
 
 import com.example.WordGame.Service.AzureImageUploadService;
 import com.example.WordGame.modules.category.Entities.Category;
@@ -23,7 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 class WordServiceImplTest {
 
     @Test
-    void createWordShouldPopulateQuizModesInResponse() {
+    void createWordShouldPopulateQuizModesAndDisplayOrderInResponse() {
         Category category = new Category();
         category.setId(1L);
         category.setName("TOTOTP");
@@ -40,6 +40,7 @@ class WordServiceImplTest {
         savedWord.setMeaning("A pleasant surprise");
         savedWord.setCategory(category);
         savedWord.setQuizModes(Set.of(QuizMode.IMAGE, QuizMode.TEXT));
+        savedWord.setDisplayOrder(10000L);
 
         WordRepo wordRepo = (WordRepo) Proxy.newProxyInstance(
                 WordRepo.class.getClassLoader(),
@@ -50,6 +51,9 @@ class WordServiceImplTest {
                     }
                     if ("findById".equals(method.getName())) {
                         return Optional.of(savedWord);
+                    }
+                    if ("findMaxDisplayOrderByCategory".equals(method.getName())) {
+                        return 0L;
                     }
                     if (method.getReturnType().equals(Optional.class)) {
                         return Optional.empty();
@@ -93,5 +97,6 @@ class WordServiceImplTest {
 
         assertNotNull(response);
         assertEquals(List.of("IMAGE", "TEXT"), response.getQuizModes());
+        assertEquals(10000L, response.getDisplayOrder());
     }
 }
