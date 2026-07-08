@@ -24,4 +24,8 @@ public class RegisterRequest {
     private String password;
 
     private String displayName;
+
+    private Long legalDocumentId;
+
+    private String acceptedFrom;
 }

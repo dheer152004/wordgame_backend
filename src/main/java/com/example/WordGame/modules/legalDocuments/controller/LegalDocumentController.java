@@ -41,6 +41,15 @@ public class LegalDocumentController {
         return ResponseEntity.ok(legalDocumentService.updateDocument(id, document));
     }
 
+    @PatchMapping("/{id}/status")
+    public ResponseEntity<LegalDocument> updateStatus(@PathVariable Long id, @RequestBody java.util.Map<String, Boolean> body) {
+        Boolean isActive = body.get("isActive");
+        if (isActive == null) {
+            return ResponseEntity.badRequest().build();
+        }
+        return ResponseEntity.ok(legalDocumentService.updateStatus(id, isActive));
+    }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteDocument(@PathVariable Long id) {
         legalDocumentService.deleteDocument(id);

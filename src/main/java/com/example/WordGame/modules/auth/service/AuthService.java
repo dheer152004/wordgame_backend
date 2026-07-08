@@ -8,6 +8,7 @@ import com.example.WordGame.modules.auth.repository.AuthUtil;
 import com.example.WordGame.modules.roles.Role;
 import com.example.WordGame.modules.roles.user.Entities.User;
 import com.example.WordGame.modules.roles.user.repository.UserRepository;
+import com.example.WordGame.modules.userConsent.service.UserConsentService;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -36,6 +37,7 @@ public class AuthService {
     private final AuthUtil authUtil;
     private final PasswordEncoder passwordEncoder;
     private final TokenBlacklistService tokenBlacklistService;
+    private final UserConsentService userConsentService;
 
     @Value("${app.admin.create-secret:}")
     private String adminCreateSecret;
@@ -109,7 +111,11 @@ public class AuthService {
         roles.add(Role.USER);
         user.setRoles(roles);
 
-        userRepository.save(user);
+        user = userRepository.save(user);
+
+        if (registerRequest.getLegalDocumentId() != null) {
+            userConsentService.createConsent(user.getId(), registerRequest.getLegalDocumentId(), registerRequest.getAcceptedFrom());
+        }
 
         return login(new LoginRequest(registerRequest.getUsername(), registerRequest.getPassword()));
     }

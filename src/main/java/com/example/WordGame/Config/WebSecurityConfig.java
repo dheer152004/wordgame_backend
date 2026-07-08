@@ -45,7 +45,11 @@ public class WebSecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/legal-documents").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/legal-documents/**").permitAll()
                         .requestMatchers(HttpMethod.PUT, "/api/legal-documents/**").permitAll()
+                        .requestMatchers(HttpMethod.PATCH, "/api/legal-documents/**").permitAll()
                         .requestMatchers(HttpMethod.DELETE, "/api/legal-documents/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/users/me/consents").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/admin/users/**/consents").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/auth/register").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/admin/words/**").permitAll()
                         // Only admins can create admin-scoped resources
                         .requestMatchers(HttpMethod.POST, "/api/admin/**").hasRole("ADMIN")

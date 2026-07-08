@@ -36,6 +36,14 @@ public class LegalDocumentServiceImpl implements LegalDocumentService {
     }
 
     @Override
+    public LegalDocument updateStatus(Long id, Boolean isActive) {
+        LegalDocument existing = legalDocumentRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Legal document not found: " + id));
+        existing.setIsActive(isActive);
+        return legalDocumentRepository.save(existing);
+    }
+
+    @Override
     public void deleteDocument(Long id) {
         legalDocumentRepository.deleteById(id);
     }

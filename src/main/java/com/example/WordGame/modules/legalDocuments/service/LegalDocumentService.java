@@ -8,6 +8,7 @@ import java.util.List;
 public interface LegalDocumentService {
     LegalDocument createDocument(LegalDocument document);
     LegalDocument updateDocument(Long id, LegalDocument document);
+    LegalDocument updateStatus(Long id, Boolean isActive);
     void deleteDocument(Long id);
     LegalDocument getDocumentById(Long id);
     LegalDocument getActiveDocument(LegalDocumentType documentType);
