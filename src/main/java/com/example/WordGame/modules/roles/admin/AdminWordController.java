@@ -42,6 +42,15 @@ public class AdminWordController {
     public ResponseEntity<WordResponseDTO> getWordById(@PathVariable Long id) {
         return ResponseEntity.ok(wordService.getWordById(id));
     }
+
+    @GetMapping("/{id}/display-order")
+    public ResponseEntity<Map<String, Object>> getDisplayOrder(@PathVariable Long id) {
+        WordResponseDTO word = wordService.getWordById(id);
+        Map<String, Object> response = new HashMap<>();
+        response.put("id", id);
+        response.put("displayOrder", word.getDisplayOrder());
+        return ResponseEntity.ok(response);
+    }
     
     // @PostMapping("/bulk/{categoryId}")
     // public ResponseEntity<Map<String, Object>> bulkCreateWords(

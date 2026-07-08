@@ -38,8 +38,15 @@ public class WebSecurityConfig {
                         // Public endpoints - no authentication required
                         .requestMatchers("/api/auth/**").permitAll()  // Login, Register
                         .requestMatchers("/api/v1/login").permitAll()
-                        // allow public reads of genres
+                        // allow public reads of genres and legal documents
                         .requestMatchers(HttpMethod.GET, "/api/genres/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/legal-documents").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/legal-documents/**").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/legal-documents").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/legal-documents/**").permitAll()
+                        .requestMatchers(HttpMethod.PUT, "/api/legal-documents/**").permitAll()
+                        .requestMatchers(HttpMethod.DELETE, "/api/legal-documents/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/admin/words/**").permitAll()
                         // Only admins can create admin-scoped resources
                         .requestMatchers(HttpMethod.POST, "/api/admin/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/genres").hasRole("ADMIN")

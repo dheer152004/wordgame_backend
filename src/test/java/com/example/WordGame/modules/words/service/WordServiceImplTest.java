@@ -1,4 +1,4 @@
-﻿package com.example.WordGame.modules.words.service;
+package com.example.WordGame.modules.words.service;
 
 import com.example.WordGame.Service.AzureImageUploadService;
 import com.example.WordGame.modules.category.Entities.Category;
