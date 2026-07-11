@@ -112,10 +112,7 @@ public class AuthService {
         user.setRoles(roles);
 
         user = userRepository.save(user);
-
-        if (registerRequest.getLegalDocumentId() != null) {
-            userConsentService.createConsent(user.getId(), registerRequest.getLegalDocumentId(), registerRequest.getAcceptedFrom());
-        }
+        createConsentRecords(user, registerRequest);
 
         return login(new LoginRequest(registerRequest.getUsername(), registerRequest.getPassword()));
     }
@@ -152,9 +149,31 @@ public class AuthService {
         roles.add(Role.ADMIN);
         user.setRoles(roles);
 
-        userRepository.save(user);
+        user = userRepository.save(user);
+        createConsentRecords(user, registerRequest);
 
         return login(new LoginRequest(registerRequest.getUsername(), registerRequest.getPassword()));
+    }
+
+    private void createConsentRecords(User user, RegisterRequest registerRequest) {
+        if (registerRequest.getAcceptedDocuments() != null && !registerRequest.getAcceptedDocuments().isEmpty()) {
+            String acceptedFrom = registerRequest.getPlatform() != null && !registerRequest.getPlatform().isBlank()
+                    ? registerRequest.getPlatform()
+                    : registerRequest.getAcceptedFrom();
+            for (Long legalDocumentId : registerRequest.getAcceptedDocuments()) {
+                if (legalDocumentId != null) {
+                    userConsentService.createConsent(user.getId(), legalDocumentId, acceptedFrom);
+                }
+            }
+            return;
+        }
+
+        if (registerRequest.getLegalDocumentId() != null) {
+            String acceptedFrom = registerRequest.getPlatform() != null && !registerRequest.getPlatform().isBlank()
+                    ? registerRequest.getPlatform()
+                    : registerRequest.getAcceptedFrom();
+            userConsentService.createConsent(user.getId(), registerRequest.getLegalDocumentId(), acceptedFrom);
+        }
     }
 
     public void logout(String bearerToken) {

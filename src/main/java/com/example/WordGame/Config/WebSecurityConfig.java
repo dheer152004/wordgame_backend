@@ -10,6 +10,9 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.authentication.HttpStatusEntryPoint;
+import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
+import org.springframework.http.HttpStatus;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 // import org.springframework.web.servlet.HandlerExceptionResolver;
@@ -48,7 +51,7 @@ public class WebSecurityConfig {
                         .requestMatchers(HttpMethod.PATCH, "/api/legal-documents/**").permitAll()
                         .requestMatchers(HttpMethod.DELETE, "/api/legal-documents/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/users/me/consents").authenticated()
-                        .requestMatchers(HttpMethod.GET, "/api/admin/users/**/consents").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/admin/users/{userId}/consents").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/auth/register").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/admin/words/**").permitAll()
                         // Only admins can create admin-scoped resources
@@ -85,6 +88,12 @@ public class WebSecurityConfig {
                 log.error("OAuth2 error: {}", exception.getMessage());
             }));
         }
+
+                // For API endpoints, don't redirect to OAuth login page — return 401 instead
+                httpSecurity.exceptionHandling(ex -> ex.defaultAuthenticationEntryPointFor(
+                                new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED),
+                                new AntPathRequestMatcher("/api/**")
+                ));
 
         return httpSecurity.build();
     }

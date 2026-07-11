@@ -23,13 +23,13 @@ public class UserConsentController {
         if (user == null) {
             return ResponseEntity.status(401).body(Map.of("authenticated", false));
         }
-        List<UserConsent> consents = userConsentService.getUserConsents(user.getId());
+        List<com.example.WordGame.modules.userConsent.DTO.UserConsentResponse> consents = userConsentService.getUserConsents(user.getId());
         return ResponseEntity.ok(Map.of("consents", consents));
     }
 
     @GetMapping("/admin/users/{userId}/consents")
     public ResponseEntity<?> getUserConsentsForAdmin(@PathVariable Long userId) {
-        List<UserConsent> consents = userConsentService.getUserConsents(userId);
+        List<com.example.WordGame.modules.userConsent.DTO.UserConsentResponse> consents = userConsentService.getUserConsents(userId);
         return ResponseEntity.ok(Map.of("userId", userId, "consents", consents));
     }
 }

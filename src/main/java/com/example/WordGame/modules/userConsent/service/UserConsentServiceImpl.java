@@ -13,8 +13,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import com.example.WordGame.modules.userConsent.DTO.UserConsentResponse;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -53,9 +55,21 @@ public class UserConsentServiceImpl implements UserConsentService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<UserConsent> getUserConsents(Long userId) {
+    public List<UserConsentResponse> getUserConsents(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ApiException("User not found"));
-        return userConsentRepository.findByUserOrderByCreatedAtDesc(user);
+        List<UserConsent> consents = userConsentRepository.findByUserOrderByCreatedAtDesc(user);
+        return consents.stream().map(c -> new UserConsentResponse(
+                c.getId(),
+                c.getLegalDocument() != null ? c.getLegalDocument().getId() : null,
+                c.getLegalDocument() != null ? c.getLegalDocument().getTitle() : null,
+                c.getLegalDocument() != null && c.getLegalDocument().getDocumentType() != null ? c.getLegalDocument().getDocumentType().name() : null,
+                c.getStatus(),
+                c.getAcceptedAt(),
+                c.getAcceptedFrom(),
+                c.getWithdrawnAt(),
+                c.getCreatedAt(),
+                c.getUpdatedAt()
+        )).collect(Collectors.toList());
     }
 }

@@ -38,6 +38,16 @@ public class AdminWordController {
         return ResponseEntity.status(HttpStatus.CREATED).body(word);
     }
 
+    @PostMapping("/rebalance-display-order")
+    public ResponseEntity<Map<String, Object>> rebalanceDisplayOrder() {
+        int updatedRecords = wordService.rebalanceDisplayOrder();
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", true);
+        response.put("updatedRecords", updatedRecords);
+        response.put("message", updatedRecords == 0 ? "No words found." : "Display order rebalanced successfully.");
+        return ResponseEntity.ok(response);
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<WordResponseDTO> getWordById(@PathVariable Long id) {
         return ResponseEntity.ok(wordService.getWordById(id));

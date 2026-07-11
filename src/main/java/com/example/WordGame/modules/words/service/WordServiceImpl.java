@@ -396,12 +396,59 @@ public class WordServiceImpl implements WordService {
         return convertToResponseDTO(updatedWord);
     }
 
+    private static final long DISPLAY_ORDER_INITIAL = 10000L;
+    private static final long DISPLAY_ORDER_INCREMENT = 10000L;
+
     public long deriveNextDisplayOrder(Category category) {
         Long maxOrder = wordRepo.findMaxDisplayOrderByCategory(category);
-        if (maxOrder == null || maxOrder < 10000L) {
-            return 10000L;
+        if (maxOrder == null || maxOrder < DISPLAY_ORDER_INITIAL) {
+            return DISPLAY_ORDER_INITIAL;
         }
-        return maxOrder + 10000L;
+        return maxOrder + DISPLAY_ORDER_INCREMENT;
+    }
+
+    @Override
+    @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = "words", allEntries = true),
+            @CacheEvict(value = "wordDetails", allEntries = true),
+            @CacheEvict(value = "randomWords", allEntries = true)
+    })
+    public int rebalanceDisplayOrder() {
+        List<com.example.WordGame.modules.category.Entities.Category> categories = categoryRepo.findAll();
+        if (categories == null || categories.isEmpty()) {
+            return 0;
+        }
+
+        int totalUpdated = 0;
+
+        for (com.example.WordGame.modules.category.Entities.Category category : categories) {
+            List<Word> words = wordRepo.findAllByCategoryId(category.getId());
+            if (words == null || words.isEmpty()) continue;
+
+            words.sort(Comparator
+                    .comparing((Word w) -> Optional.ofNullable(w.getDisplayOrder()).orElse(Long.MAX_VALUE))
+                    .thenComparing(Word::getId));
+
+            long nextOrder = DISPLAY_ORDER_INITIAL;
+            List<Word> updatedWords = new ArrayList<>();
+
+            for (Word word : words) {
+                if (word.getDisplayOrder() == null || !word.getDisplayOrder().equals(nextOrder)) {
+                    word.setDisplayOrder(nextOrder);
+                    word.setUpdatedAt(LocalDateTime.now());
+                    updatedWords.add(word);
+                }
+                nextOrder += DISPLAY_ORDER_INCREMENT;
+            }
+
+            if (!updatedWords.isEmpty()) {
+                wordRepo.saveAll(updatedWords);
+                totalUpdated += updatedWords.size();
+            }
+        }
+
+        return totalUpdated;
     }
 
     @Override

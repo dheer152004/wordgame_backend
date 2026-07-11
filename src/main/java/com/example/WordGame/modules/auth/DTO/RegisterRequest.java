@@ -7,6 +7,8 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
@@ -24,6 +26,10 @@ public class RegisterRequest {
     private String password;
 
     private String displayName;
+
+    private List<Long> acceptedDocuments;
+
+    private String platform;
 
     private Long legalDocumentId;
 

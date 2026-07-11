@@ -23,6 +23,8 @@ public interface WordRepo extends JpaRepository<Word, Long> {
 
     List<Word> findAllByCategoryId(Long categoryId);
 
+    List<Word> findAllByOrderByDisplayOrderAsc();
+
     Optional<Word> findByWord(String word);
 
     long countByCategory(Category category);
