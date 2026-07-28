@@ -20,6 +20,7 @@ public class WordResponseDTO {
     private Long id;
     private String word;
     private Long categoryId;
+    private String categoryName;
     private String meaning;
     private Long displayOrder;
     private List<String> images;
@@ -38,7 +39,7 @@ public class WordResponseDTO {
     @AllArgsConstructor
     @NoArgsConstructor
     public static class RelatedWord {
-        private Long id;
+        private Long wordId;
         private String word;
     }
 
@@ -49,5 +50,6 @@ public class WordResponseDTO {
         private Long categoryId;
         private Long wordId;
         private String categoryName;
+        private String word;
     }
 }

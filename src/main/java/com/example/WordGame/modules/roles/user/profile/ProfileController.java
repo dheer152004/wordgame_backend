@@ -11,6 +11,7 @@ import org.springframework.web.multipart.MultipartFile;
 import com.example.WordGame.modules.roles.user.UserProfileDTO.ChangePasswordRequestDTO;
 import com.example.WordGame.modules.roles.user.UserProfileDTO.ProfileResponseDTO;
 import com.example.WordGame.modules.roles.user.UserProfileDTO.ProfileUpdateRequestDTO;
+import com.example.WordGame.modules.roles.user.UserProfileDTO.StreakResponseDTO;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -36,7 +37,18 @@ public class ProfileController {
     }
 
     /**
-     * 5. PUT /api/user/profile
+     * 5. GET /api/user/profile/streak
+     * Get current and longest streak for the authenticated user
+     */
+    @GetMapping("/streak")
+    public ResponseEntity<StreakResponseDTO> getStreak(
+            @AuthenticationPrincipal UserDetails userDetails) {
+        String userEmail = userDetails.getUsername();
+        return ResponseEntity.ok(profileService.getStreakInfo(userEmail));
+    }
+
+    /**
+     * 6. PUT /api/user/profile
      * Update profile (text fields only - no image)
      */
     @PutMapping
@@ -53,7 +65,7 @@ public class ProfileController {
     }
 
     /**
-     * 6. POST /api/user/profile/avatar
+     * 7. POST /api/user/profile/avatar
      * Upload/Change profile avatar image only
      */
     @PostMapping(value = "/avatar", consumes = {"multipart/form-data"})
@@ -66,7 +78,7 @@ public class ProfileController {
     }
 
     /**
-     * 7. DELETE /api/user/profile/avatar
+     * 8. DELETE /api/user/profile/avatar
      * Remove profile avatar (set to default)
      */
     @DeleteMapping("/avatar")
@@ -78,7 +90,7 @@ public class ProfileController {
     }
 
     /**
-     * 8. PUT /api/user/profile/change-password
+     * 9. PUT /api/user/profile/change-password
      * Change user password
      */
     @PutMapping("/change-password")

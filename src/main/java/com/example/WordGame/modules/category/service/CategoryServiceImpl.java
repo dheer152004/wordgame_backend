@@ -1,6 +1,6 @@
 package com.example.WordGame.modules.category.service;
 
-import com.example.WordGame.Service.AzureImageUploadService;
+import com.example.WordGame.Service.ImageStorageService;
 import com.example.WordGame.exceptions.ApiException;
 import com.example.WordGame.modules.category.CategoryDTO.CategoryRequestDTO;
 import com.example.WordGame.modules.category.CategoryDTO.CategoryResponseDTO;
@@ -17,6 +17,9 @@ import org.modelmapper.ModelMapper;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.Caching;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,7 +38,7 @@ public class CategoryServiceImpl implements CategoryService {
     private final GenreRepo genreRepo;
     private final WordRepo wordRepo;
     private final ModelMapper modelMapper;
-    private final AzureImageUploadService imageUploadService;
+    private final ImageStorageService imageUploadService;
 
     @Override
     @Cacheable(value = "categories", key = "'all'", unless = "#result == null")
@@ -45,6 +48,17 @@ public class CategoryServiceImpl implements CategoryService {
         return categories.stream()
                 .map(this::toResponseDto)
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    public Page<CategoryResponseDTO> searchCategories(String q, Pageable pageable) {
+        if (q == null || q.isBlank()) {
+            return new PageImpl<>(List.of(), pageable, 0);
+        }
+
+        String query = q.trim();
+        Page<Category> categoriesPage = categoryRepo.findByNameContainingIgnoreCase(query, pageable);
+        return categoriesPage.map(this::toResponseDto);
     }
 
     @Override

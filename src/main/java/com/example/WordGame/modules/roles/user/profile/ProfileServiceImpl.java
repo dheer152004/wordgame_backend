@@ -1,7 +1,7 @@
 package com.example.WordGame.modules.roles.user.profile;
 
 // import com.example.WordGame.Repository.*;
-import com.example.WordGame.Service.AzureImageUploadService;
+import com.example.WordGame.Service.ImageStorageService;
 import com.example.WordGame.exceptions.ApiException;
 import com.example.WordGame.modules.quiz.repository.QuizAttemptRepository;
 import com.example.WordGame.modules.roles.user.Entities.User;
@@ -9,6 +9,7 @@ import com.example.WordGame.modules.roles.user.Entities.UserProfile;
 import com.example.WordGame.modules.roles.user.UserProfileDTO.ChangePasswordRequestDTO;
 import com.example.WordGame.modules.roles.user.UserProfileDTO.ProfileResponseDTO;
 import com.example.WordGame.modules.roles.user.UserProfileDTO.ProfileUpdateRequestDTO;
+import com.example.WordGame.modules.roles.user.UserProfileDTO.StreakResponseDTO;
 import com.example.WordGame.modules.roles.user.repository.UserRepository;
 import com.example.WordGame.modules.savedwords.repository.UserSavedWordRepository;
 
@@ -35,7 +36,7 @@ public class ProfileServiceImpl implements ProfileService {
     private final UserSavedWordRepository savedWordRepository;
     private final QuizAttemptRepository quizAttemptRepository;
     private final PasswordEncoder passwordEncoder;
-    private final AzureImageUploadService imageUploadService;
+    private final ImageStorageService imageUploadService;
 
     @Override
     public ProfileResponseDTO getProfile(String userEmail) {
@@ -92,6 +93,18 @@ public class ProfileServiceImpl implements ProfileService {
                 .lastQuizDate(user.getLastQuizDate())
                 // Badges
                 .recentBadges(getUserBadges(user, totalSavedWords, totalQuizzes))
+                .build();
+    }
+
+    @Override
+    public StreakResponseDTO getStreakInfo(String userEmail) {
+        log.info("🔥 Fetching streak info for user: {}", userEmail);
+
+        User user = getUserByEmail(userEmail);
+
+        return StreakResponseDTO.builder()
+                .currentStreak(user.getCurrentStreak())
+                .longestStreak(user.getLongestStreak())
                 .build();
     }
 

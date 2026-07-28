@@ -17,6 +17,7 @@ public class WordDetailResponseDTO {
     private Long id;
     private String word;
     private Long categoryId;
+    private String categoryName;
     private String meaning;
     private Long displayOrder;
     private String description;

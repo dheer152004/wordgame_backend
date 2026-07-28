@@ -6,15 +6,21 @@ import com.example.WordGame.modules.legalDocuments.service.LegalDocumentService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.beans.factory.annotation.Value;
 
 import java.util.List;
 
 @RestController
+@CrossOrigin(origins = "*")
 @RequestMapping("/api/legal-documents")
 @RequiredArgsConstructor
 public class LegalDocumentController {
 
     private final LegalDocumentService legalDocumentService;
+
+    @Value("${app.admin.create-secret:}")
+    private String adminCreateSecret;
 
     @GetMapping({"", "/"})
     public List<LegalDocument> getAllActiveDocuments() {
@@ -32,7 +38,12 @@ public class LegalDocumentController {
     }
 
     @PostMapping
-    public ResponseEntity<LegalDocument> createDocument(@RequestBody LegalDocument document) {
+    public ResponseEntity<LegalDocument> createDocument(@RequestBody LegalDocument document,
+                                                        @RequestHeader(value = "X-Admin-Secret", required = false) String secret) {
+        // Require admin creation secret to prevent unauthorized creation of legal documents
+        if (adminCreateSecret == null || adminCreateSecret.isBlank() || !adminCreateSecret.equals(secret)) {
+            return ResponseEntity.status(403).build();
+        }
         return ResponseEntity.ok(legalDocumentService.createDocument(document));
     }
 

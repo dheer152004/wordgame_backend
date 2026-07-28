@@ -1,7 +1,7 @@
 package com.example.WordGame.modules.words.service;
 
 // import com.example.WordGame.Entities.*;
-import com.example.WordGame.Service.AzureImageUploadService;
+import com.example.WordGame.Service.ImageStorageService;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.example.WordGame.exceptions.ApiException;
@@ -40,7 +40,7 @@ public class WordServiceImpl implements WordService {
     // private final WordExampleRepo wordExampleRepo;
     // private final com.example.WordGame.Repository.WordRelationRepo wordRelationRepo;
     private final ModelMapper modelMapper;
-    private final AzureImageUploadService imageUploadService;
+    private final ImageStorageService imageUploadService;
     private final ObjectMapper objectMapper;
 
     // ✅ ONLY ONE NEW METHOD - Random words with caching
@@ -79,10 +79,9 @@ public class WordServiceImpl implements WordService {
     @Override
    // @Cacheable(value = "words", key = "#categoryName + '_' + #pageable.pageNumber + '_' + #pageable.pageSize", unless = "#result == null")
     public Page<WordResponseDTO> getWordsByCategory(String categoryName, Pageable pageable) {
-        log.info("📚 CACHE MISS - Fetching words for category '{}' page {} from DATABASE", categoryName, pageable.getPageNumber());
+        log.info("📚 CACHE MISS - Fetching words for category key '{}' page {} from DATABASE", categoryName, pageable.getPageNumber());
 
-        Category category = categoryRepo.findByName(categoryName)
-                .orElseThrow(() -> new RuntimeException("Category not found: " + categoryName));
+        Category category = resolveCategory(categoryName);
 
         return wordRepo.findByCategory(category, pageable)
                 .map(this::convertToResponseDTO);
@@ -111,6 +110,7 @@ public class WordServiceImpl implements WordService {
         responseDTO.setId(word.getId());
         responseDTO.setWord(word.getWord());
         responseDTO.setCategoryId(word.getCategory() != null ? word.getCategory().getId() : null);
+        responseDTO.setCategoryName(word.getCategory() != null ? word.getCategory().getName() : null);
         responseDTO.setMeaning(word.getMeaning());
         responseDTO.setDescription(word.getDescription());
         responseDTO.setImages(word.getImages());
@@ -121,21 +121,25 @@ public class WordServiceImpl implements WordService {
         responseDTO.setUpdated(formatDateTime(word.getUpdatedAt()));
         responseDTO.setDisplayOrder(word.getDisplayOrder());
 
-        // related words: not implemented - return empty list for now
-        responseDTO.setRelatedWordIds(Collections.emptyList());
+        // related words - resolve persisted related IDs into response objects
+        List<Long> relatedIds = word.getRelatedWordIds();
+        if (relatedIds == null || relatedIds.isEmpty()) {
+            responseDTO.setRelatedWordIds(Collections.emptyList());
+        } else {
+            List<WordResponseDTO.RelatedWord> related = new ArrayList<>();
+            for (Long rid : relatedIds) {
+                wordRepo.findById(rid).ifPresentOrElse(
+                        rw -> related.add(new WordResponseDTO.RelatedWord(rw.getId(), rw.getWord())),
+                        () -> related.add(new WordResponseDTO.RelatedWord(rid, null)));
+            }
+            responseDTO.setRelatedWordIds(related);
+        }
 
         // alsoAppearsIn
         responseDTO.setAlsoAppearsIn(parseAlsoAppearsIn(word.getAlsoAppearsInJson()));
 
         // quiz modes
         responseDTO.setQuizModes(mapQuizModes(word.getQuizModes()));
-
-        // // quiz modes
-        // if (word.getQuizModes() == null || word.getQuizModes().isEmpty()) {
-        //     responseDTO.setQuizModes(java.util.List.of());
-        // } else {
-        //     responseDTO.setQuizModes(word.getQuizModes().stream().map(Enum::name).toList());
-        // }
 
         return responseDTO;
     }
@@ -366,7 +370,7 @@ public class WordServiceImpl implements WordService {
             List<WordResponseDTO.RelatedWord> related = new ArrayList<>();
             for (Long relatedId : request.getRelatedWordIds()) {
                 wordRepo.findById(relatedId).ifPresent(rw -> related.add(new WordResponseDTO.RelatedWord(rw.getId(), rw.getWord())));
-                if (related.stream().noneMatch(r -> r.getId().equals(relatedId))) {
+                if (related.stream().noneMatch(r -> r.getWordId().equals(relatedId))) {
                     related.add(new WordResponseDTO.RelatedWord(relatedId, null));
                 }
             }
@@ -529,6 +533,7 @@ public class WordServiceImpl implements WordService {
         responseDTO.setId(word.getId());
         responseDTO.setWord(word.getWord());
         responseDTO.setCategoryId(word.getCategory() != null ? word.getCategory().getId() : null);
+        responseDTO.setCategoryName(word.getCategory() != null ? word.getCategory().getName() : null);
         responseDTO.setMeaning(word.getMeaning());
         List<String> imgs = word.getImages();
         responseDTO.setImages(imgs);
@@ -596,6 +601,23 @@ public class WordServiceImpl implements WordService {
 
         if (urls.isEmpty()) return null;
         return urls;
+    }
+
+    private Category resolveCategory(String categoryKey) {
+        if (categoryKey == null || categoryKey.isBlank()) {
+            throw new ApiException("Category is required");
+        }
+
+        String trimmedKey = categoryKey.trim();
+        try {
+            Long categoryId = Long.valueOf(trimmedKey);
+            return categoryRepo.findById(categoryId)
+                    .orElseGet(() -> categoryRepo.findByName(trimmedKey)
+                            .orElseThrow(() -> new ApiException("Category not found with id: " + categoryId)));
+        } catch (NumberFormatException ignored) {
+            return categoryRepo.findByName(trimmedKey)
+                    .orElseThrow(() -> new ApiException("Category not found: " + trimmedKey));
+        }
     }
 
     // private List<String> resolveImagesJson(BulkWordImportDTO.WordEntry wordEntry) {
@@ -731,10 +753,14 @@ public class WordServiceImpl implements WordService {
                         Long cid = m.getOrDefault("categoryId", null);
                         Long wid = m.getOrDefault("wordId", null);
                         String cname = null;
+                        String wname = null;
                         if (cid != null) {
                             cname = categoryRepo.findById(cid).map(cat -> cat.getName()).orElse(null);
                         }
-                        return new WordResponseDTO.AlsoAppearsIn(cid, wid, cname);
+                        if (wid != null) {
+                            wname = wordRepo.findById(wid).map(Word::getWord).orElse(null);
+                        }
+                        return new WordResponseDTO.AlsoAppearsIn(cid, wid, cname, wname);
                     })
                     .collect(Collectors.toList());
         } catch (Exception e) {

@@ -74,10 +74,10 @@ public class AdminWordController {
     //     return ResponseEntity.ok(response);
     // }
 
-    @PutMapping("/{id}")
+    @PutMapping(path = "/{id}", consumes = "application/json")
     public ResponseEntity<WordResponseDTO> updateWord(
             @PathVariable Long id,
-            @ModelAttribute WordRequestDTO request) {
+            @RequestBody WordRequestDTO request) {
         WordResponseDTO word = wordService.updateWord(id, request);
         return ResponseEntity.ok(word);
     }

@@ -1,6 +1,6 @@
 package com.example.WordGame.modules.genre.service;
 
-import com.example.WordGame.Service.AzureImageUploadService;
+import com.example.WordGame.Service.ImageStorageService;
 import com.example.WordGame.exceptions.ApiException;
 import com.example.WordGame.modules.category.repository.CategoryRepo;
 import com.example.WordGame.modules.genre.Entities.Genre;
@@ -25,7 +25,7 @@ public class GenreServiceImpl implements GenreService {
 
     private final GenreRepo genreRepo;
     private final CategoryRepo categoryRepo;
-    private final AzureImageUploadService imageUploadService;
+    private final ImageStorageService imageUploadService;
 
     @Override
     public List<GenreResponseDTO> getAllGenres() {

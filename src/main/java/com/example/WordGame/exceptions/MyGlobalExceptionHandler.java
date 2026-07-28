@@ -1,6 +1,8 @@
 package com.example.WordGame.exceptions;
 
 import io.jsonwebtoken.JwtException;
+import org.springframework.data.redis.RedisConnectionFailureException;
+import org.springframework.data.redis.RedisSystemException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.AuthenticationException;
@@ -51,6 +53,12 @@ public class MyGlobalExceptionHandler {
     public ResponseEntity<APIResponse> handleJwtException(JwtException ex) {
         APIResponse response = new APIResponse("Invalid JWT token: " + ex.getMessage(), false, HttpStatus.UNAUTHORIZED.value());
         return new ResponseEntity<>(response, HttpStatus.UNAUTHORIZED);
+    }
+
+    @ExceptionHandler({RedisConnectionFailureException.class, RedisSystemException.class})
+    public ResponseEntity<APIResponse> handleRedisException(Exception ex) {
+        APIResponse response = new APIResponse("Redis cache unavailable: " + ex.getMessage(), false, HttpStatus.SERVICE_UNAVAILABLE.value());
+        return new ResponseEntity<>(response, HttpStatus.SERVICE_UNAVAILABLE);
     }
 
     @ExceptionHandler(AccessDeniedException.class)

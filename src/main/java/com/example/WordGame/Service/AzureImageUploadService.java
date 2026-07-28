@@ -6,16 +6,14 @@ import com.azure.storage.blob.BlobServiceClientBuilder;
 import com.azure.storage.blob.models.BlobHttpHeaders;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import jakarta.annotation.PostConstruct;
 import java.io.IOException;
 import java.util.UUID;
 
-@Service
 @Slf4j
-public class AzureImageUploadService {
+public class AzureImageUploadService implements ImageStorageService {
 
     @Value("${azure.storage.connection-string}")
     private String connectionString;

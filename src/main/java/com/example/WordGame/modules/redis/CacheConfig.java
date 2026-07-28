@@ -1,11 +1,17 @@
 package com.example.WordGame.modules.redis;
 
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.cache.CacheManager;
+import org.springframework.cache.concurrent.ConcurrentMapCacheManager;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.data.redis.RedisConnectionFailureException;
+import org.springframework.data.redis.RedisSystemException;
 import org.springframework.data.redis.cache.RedisCacheConfiguration;
 import org.springframework.data.redis.cache.RedisCacheManager;
+import org.springframework.data.redis.connection.RedisConnection;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
 import org.springframework.data.redis.serializer.RedisSerializationContext;
@@ -17,10 +23,21 @@ import java.util.Map;
 
 @Configuration
 @EnableCaching
+@Slf4j
 public class CacheConfig {
 
     @Bean
-    public CacheManager cacheManager(RedisConnectionFactory connectionFactory) {
+    public CacheManager cacheManager(ObjectProvider<RedisConnectionFactory> connectionFactoryProvider) {
+        RedisConnectionFactory connectionFactory = connectionFactoryProvider.getIfAvailable();
+        if (connectionFactory == null) {
+            log.warn("RedisConnectionFactory not available; using simple in-memory cache manager.");
+            return simpleCacheManager();
+        }
+
+        if (!isRedisAvailable(connectionFactory)) {
+            log.warn("Redis is unavailable; falling back to simple in-memory cache manager.");
+            return simpleCacheManager();
+        }
 
         // Default cache configuration - 10 minutes
         RedisCacheConfiguration defaultConfig = RedisCacheConfiguration.defaultCacheConfig()
@@ -78,5 +95,31 @@ public class CacheConfig {
                 .cacheDefaults(defaultConfig)
                 .withInitialCacheConfigurations(cacheConfigurations)
                 .build();
+    }
+
+    private boolean isRedisAvailable(RedisConnectionFactory connectionFactory) {
+        try (RedisConnection connection = connectionFactory.getConnection()) {
+            return connection.ping() != null;
+        } catch (RedisConnectionFailureException | RedisSystemException ex) {
+            log.warn("Redis health check failed: {}", ex.getMessage());
+            return false;
+        } catch (Exception ex) {
+            log.warn("Unexpected error while checking Redis availability: {}", ex.getMessage());
+            return false;
+        }
+    }
+
+    private CacheManager simpleCacheManager() {
+        ConcurrentMapCacheManager cacheManager = new ConcurrentMapCacheManager(
+                "categories",
+                "words",
+                "wordDetails",
+                "randomWords",
+                "quizQuestions",
+                "userStats",
+                "quizHistory"
+        );
+        cacheManager.setAllowNullValues(false);
+        return cacheManager;
     }
 }

@@ -2,6 +2,7 @@ package com.example.WordGame.modules.report;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -15,8 +16,14 @@ public class ReportController {
 
     private final ReportService reportService;
 
-    @PostMapping(consumes = "application/json")
-    public ResponseEntity<ReportResponseDTO> createReport(@RequestBody ReportRequestDTO request) {
+    @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<ReportResponseDTO> createReportJson(@RequestBody ReportRequestDTO request) {
+        ReportResponseDTO dto = reportService.createReport(request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(dto);
+    }
+
+    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ReportResponseDTO> createReportMultipart(@ModelAttribute ReportRequestDTO request) {
         ReportResponseDTO dto = reportService.createReport(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(dto);
     }
