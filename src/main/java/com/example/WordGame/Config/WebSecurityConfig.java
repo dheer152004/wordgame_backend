@@ -19,6 +19,7 @@ import org.springframework.security.oauth2.client.registration.ClientRegistratio
 import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 
 import com.example.WordGame.modules.auth.service.JwtAuthFilter;
+import org.springframework.core.annotation.Order;
 
 @Configuration
 @RequiredArgsConstructor
@@ -28,6 +29,7 @@ import com.example.WordGame.modules.auth.service.JwtAuthFilter;
 public class WebSecurityConfig {
 
     private final JwtAuthFilter jwtAuthFilter;
+    private final RateLimitingFilter rateLimitingFilter;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity httpSecurity,
@@ -79,6 +81,7 @@ public class WebSecurityConfig {
                         // All other endpoints require authentication
                         .anyRequest().authenticated()
                 )
+                .addFilterBefore(rateLimitingFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
                 .headers(headers -> headers.frameOptions(frame -> frame.sameOrigin()));
 
