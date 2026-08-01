@@ -1,5 +1,6 @@
 package com.example.WordGame.modules.auth.service;
 
+import com.example.WordGame.Service.EmailService;
 import com.example.WordGame.exceptions.ApiException;
 import com.example.WordGame.modules.auth.DTO.LoginRequest;
 import com.example.WordGame.modules.auth.DTO.LoginResponseDTO;
@@ -21,6 +22,7 @@ import org.springframework.beans.factory.annotation.Value;
 
 import java.time.LocalDateTime;
 import java.net.HttpURLConnection;
+import java.util.UUID;
 import java.net.URL;
 import java.util.Base64;
 import java.util.Map;
@@ -38,9 +40,16 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final TokenBlacklistService tokenBlacklistService;
     private final UserConsentService userConsentService;
+    private final EmailService emailService;
 
     @Value("${app.admin.create-secret:}")
     private String adminCreateSecret;
+
+    @Value("${app.auth.verify-url:http://localhost:8082/api/auth/verify-email?token=}")
+    private String verificationUrlTemplate;
+
+    @Value("${app.auth.reset-url:http://localhost:8082/api/auth/reset-password?token=}")
+    private String resetUrlTemplate;
 
     public LoginResponseDTO login(LoginRequest loginRequest) {
         Authentication authentication = authenticationManager.authenticate(
@@ -54,10 +63,17 @@ public class AuthService {
         User userInDB = userRepository.findByUsername(user.getUsername())
             .orElseThrow(() -> new ApiException("User not found"));
 
+        if (userInDB.getProvider() == com.example.WordGame.modules.auth.Provider.EMAIL
+                && Boolean.FALSE.equals(userInDB.getEmailVerified())) {
+            throw new ApiException("Please verify your email before logging in");
+        }
+
         // Update last login
         userInDB.setLastLogin(LocalDateTime.now());
         userInDB.setLastActive(LocalDateTime.now());
+        userInDB.setProvider(userInDB.getProvider() == null ? com.example.WordGame.modules.auth.Provider.EMAIL : userInDB.getProvider());
         userRepository.save(userInDB);
+        maybeSendEmailVerification(userInDB);
 
         return LoginResponseDTO.builder()
                 .token(token)
@@ -71,6 +87,7 @@ public class AuthService {
                 // .currentStreak(user.getCurrentStreak())
                 .roles(user.getRoles() == null ? java.util.List.of() : user.getRoles().stream().map(Enum::name).toList())
                 .provider("email")
+                .emailVerified(Boolean.TRUE.equals(userInDB.getEmailVerified()))
                 .build();
     }
 
@@ -111,10 +128,20 @@ public class AuthService {
         roles.add(Role.USER);
         user.setRoles(roles);
 
+        user.setProvider(com.example.WordGame.modules.auth.Provider.EMAIL);
         user = userRepository.save(user);
         createConsentRecords(user, registerRequest);
+        maybeSendEmailVerification(user);
 
-        return login(new LoginRequest(registerRequest.getUsername(), registerRequest.getPassword()));
+        return LoginResponseDTO.builder()
+                .id(user.getId())
+                .username(user.getUsername())
+                .email(user.getEmail())
+                .displayName(user.getDisplayName())
+                .roles(user.getRoles() == null ? java.util.List.of() : user.getRoles().stream().map(Enum::name).toList())
+                .provider("email")
+                .emailVerified(Boolean.TRUE.equals(user.getEmailVerified()))
+                .build();
     }
 
     public LoginResponseDTO registerAdmin(RegisterRequest registerRequest, String secret) {
@@ -149,10 +176,20 @@ public class AuthService {
         roles.add(Role.ADMIN);
         user.setRoles(roles);
 
+        user.setProvider(com.example.WordGame.modules.auth.Provider.EMAIL);
         user = userRepository.save(user);
         createConsentRecords(user, registerRequest);
+        maybeSendEmailVerification(user);
 
-        return login(new LoginRequest(registerRequest.getUsername(), registerRequest.getPassword()));
+        return LoginResponseDTO.builder()
+                .id(user.getId())
+                .username(user.getUsername())
+                .email(user.getEmail())
+                .displayName(user.getDisplayName())
+                .roles(user.getRoles() == null ? java.util.List.of() : user.getRoles().stream().map(Enum::name).toList())
+                .provider("email")
+                .emailVerified(Boolean.TRUE.equals(user.getEmailVerified()))
+                .build();
     }
 
     private void createConsentRecords(User user, RegisterRequest registerRequest) {
@@ -265,7 +302,102 @@ public class AuthService {
                 .displayName(user.getDisplayName())
             .roles(user.getRoles() == null ? java.util.List.of() : user.getRoles().stream().map(Enum::name).toList())
             .provider(provider.name().toLowerCase())
+                .emailVerified(Boolean.TRUE.equals(user.getEmailVerified()))
                 .build();
+    }
+
+    public boolean verifyEmail(String token) {
+        if (token == null || token.isBlank()) {
+            throw new ApiException("Verification token is required");
+        }
+
+        User user = userRepository.findAll().stream()
+                .filter(existing -> token.equals(existing.getEmailVerificationToken()))
+                .findFirst()
+                .orElseThrow(() -> new ApiException("Invalid or expired verification token"));
+
+        if (user.getEmailVerificationExpiresAt() != null && user.getEmailVerificationExpiresAt().isBefore(LocalDateTime.now())) {
+            throw new ApiException("Verification token has expired");
+        }
+
+        user.setEmailVerified(true);
+        user.setEmailVerificationToken(null);
+        user.setEmailVerificationExpiresAt(null);
+        userRepository.save(user);
+        return true;
+    }
+
+    public java.util.Map<String, Object> forgotPassword(String email) {
+        if (email == null || email.isBlank()) {
+            throw new ApiException("Email is required");
+        }
+
+        User user = userRepository.findByEmail(email.trim()).orElseThrow(() -> new ApiException("No account found with that email"));
+        String token = UUID.randomUUID().toString();
+        user.setPasswordResetToken(token);
+        user.setPasswordResetExpiresAt(LocalDateTime.now().plusHours(1));
+        userRepository.save(user);
+
+        String resetUrl = resetUrlTemplate + token;
+        emailService.sendPasswordResetEmail(user, resetUrl);
+
+        return java.util.Map.of("success", true, "message", "Password reset instructions have been sent to your email");
+    }
+
+    public java.util.Map<String, Object> resetPassword(String token, String newPassword) {
+        if (token == null || token.isBlank()) {
+            throw new ApiException("Reset token is required");
+        }
+        if (newPassword == null || newPassword.isBlank()) {
+            throw new ApiException("New password is required");
+        }
+
+        User user = userRepository.findAll().stream()
+                .filter(existing -> token.equals(existing.getPasswordResetToken()))
+                .findFirst()
+                .orElseThrow(() -> new ApiException("Invalid or expired reset token"));
+
+        if (user.getPasswordResetExpiresAt() != null && user.getPasswordResetExpiresAt().isBefore(LocalDateTime.now())) {
+            throw new ApiException("Reset token has expired");
+        }
+
+        user.setPassword(passwordEncoder.encode(newPassword));
+        user.setPasswordResetToken(null);
+        user.setPasswordResetExpiresAt(null);
+        userRepository.save(user);
+
+        return java.util.Map.of("success", true, "message", "Password updated successfully");
+    }
+
+    public java.util.Map<String, Object> resendVerificationEmail(String email) {
+        if (email == null || email.isBlank()) {
+            throw new ApiException("Email is required");
+        }
+
+        User user = userRepository.findByEmail(email.trim()).orElseThrow(() -> new ApiException("No account found with that email"));
+        if (Boolean.TRUE.equals(user.getEmailVerified())) {
+            return java.util.Map.of("success", true, "message", "Email is already verified");
+        }
+
+        maybeSendEmailVerification(user);
+        return java.util.Map.of("success", true, "message", "Verification email sent successfully");
+    }
+
+    private void maybeSendEmailVerification(User user) {
+        if (user == null || user.getEmail() == null || user.getProvider() != com.example.WordGame.modules.auth.Provider.EMAIL) {
+            return;
+        }
+        if (Boolean.TRUE.equals(user.getEmailVerified())) {
+            return;
+        }
+
+        String token = UUID.randomUUID().toString();
+        user.setEmailVerificationToken(token);
+        user.setEmailVerificationExpiresAt(LocalDateTime.now().plusDays(1));
+        userRepository.save(user);
+
+        String verificationUrl = verificationUrlTemplate + token;
+        emailService.sendEmailVerification(user, verificationUrl);
     }
 
     private Map<String, Object> fetchProfile(com.example.WordGame.modules.auth.Provider provider, String token) {

@@ -16,6 +16,7 @@ public class LoginResponseDTO {
     private String email;
     private String displayName;
     private String provider;
+    private boolean emailVerified;
     // private String avatarUrl;
     // private Integer totalXp;
     // private Integer level;

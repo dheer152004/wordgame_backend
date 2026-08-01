@@ -9,6 +9,7 @@ import com.example.WordGame.modules.auth.service.AuthService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import java.util.Map;
 import jakarta.validation.Valid;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import com.example.WordGame.modules.roles.user.Entities.User;
@@ -79,6 +80,34 @@ public class AuthController {
     @PostMapping("/oauth")
     public ResponseEntity<LoginResponseDTO> oauth(@RequestBody OAuthRequest req) {
         return ResponseEntity.ok(authService.oauthLogin(req.getProvider(), req.getToken()));
+    }
+
+    @GetMapping("/verify-email")
+    public ResponseEntity<Map<String, Object>> verifyEmail(@RequestParam("token") String token) {
+        boolean verified = authService.verifyEmail(token);
+        return ResponseEntity.ok(Map.of(
+                "success", verified,
+                "message", verified ? "Email verified successfully" : "Email verification failed"
+        ));
+    }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<Map<String, Object>> forgotPassword(@RequestBody Map<String, String> request) {
+        String email = request != null ? request.get("email") : null;
+        return ResponseEntity.ok(authService.forgotPassword(email));
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<Map<String, Object>> resetPassword(@RequestBody Map<String, String> request) {
+        String token = request != null ? request.get("token") : null;
+        String newPassword = request != null ? request.get("newPassword") : null;
+        return ResponseEntity.ok(authService.resetPassword(token, newPassword));
+    }
+
+    @PostMapping("/resend-verification")
+    public ResponseEntity<Map<String, Object>> resendVerification(@RequestBody Map<String, String> request) {
+        String email = request != null ? request.get("email") : null;
+        return ResponseEntity.ok(authService.resendVerificationEmail(email));
     }
 
 }
