@@ -11,7 +11,9 @@ import com.example.WordGame.modules.roles.user.UserProfileDTO.ProfileResponseDTO
 import com.example.WordGame.modules.roles.user.UserProfileDTO.ProfileUpdateRequestDTO;
 import com.example.WordGame.modules.roles.user.UserProfileDTO.StreakResponseDTO;
 import com.example.WordGame.modules.roles.user.repository.UserRepository;
+import com.example.WordGame.modules.roles.repository.LeaderboardCacheRepository;
 import com.example.WordGame.modules.savedwords.repository.UserSavedWordRepository;
+import com.example.WordGame.modules.userConsent.repository.UserConsentRepository;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -37,6 +39,8 @@ public class ProfileServiceImpl implements ProfileService {
     private final QuizAttemptRepository quizAttemptRepository;
     private final PasswordEncoder passwordEncoder;
     private final ImageStorageService imageUploadService;
+    private final UserConsentRepository userConsentRepository;
+    private final LeaderboardCacheRepository leaderboardCacheRepository;
 
     @Override
     public ProfileResponseDTO getProfile(String userEmail) {
@@ -245,6 +249,22 @@ public class ProfileServiceImpl implements ProfileService {
         }
 
         return getProfile(userEmail);
+    }
+
+    @Override
+    @Transactional
+    public void deleteProfile(String userEmail) {
+        log.info("🗑️ Deleting profile for user: {}", userEmail);
+
+        User user = getUserByEmail(userEmail);
+
+        // These associations are not cascaded from User. Shared content and
+        // all image files are intentionally left untouched.
+        userConsentRepository.deleteByUser(user);
+        leaderboardCacheRepository.deleteByUser(user);
+        userRepository.delete(user);
+
+        log.info("✅ Profile deleted successfully for user: {}", userEmail);
     }
 
     @Override

@@ -90,6 +90,21 @@ public class ProfileController {
     }
 
     /**
+     * DELETE /api/user/profile
+     * Delete the authenticated user's account and user-owned data.
+     * Shared content such as words, images, genres, and categories is retained.
+     */
+    @DeleteMapping
+    public ResponseEntity<Map<String, String>> deleteProfile(
+            @AuthenticationPrincipal UserDetails userDetails) {
+        profileService.deleteProfile(userDetails.getUsername());
+
+        Map<String, String> response = new HashMap<>();
+        response.put("message", "Profile deleted successfully");
+        return ResponseEntity.ok(response);
+    }
+
+    /**
      * 9. PUT /api/user/profile/change-password
      * Change user password
      */

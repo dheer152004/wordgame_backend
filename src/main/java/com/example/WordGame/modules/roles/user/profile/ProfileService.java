@@ -21,6 +21,9 @@ public interface ProfileService {
     // Remove avatar (set to default)
     ProfileResponseDTO removeAvatar(String userEmail);
 
+    // Delete the authenticated user's account and user-owned data
+    void deleteProfile(String userEmail);
+
     // Change password
     void changePassword(String userEmail, ChangePasswordRequestDTO request);
 

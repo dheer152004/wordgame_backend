@@ -16,4 +16,6 @@ public interface UserConsentRepository extends JpaRepository<UserConsent, Long> 
     List<UserConsent> findByUserOrderByCreatedAtDesc(User user);
 
     List<UserConsent> findByUserIdOrderByCreatedAtDesc(Long userId);
+
+    void deleteByUser(User user);
 }
