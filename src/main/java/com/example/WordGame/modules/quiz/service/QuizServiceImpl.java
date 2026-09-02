@@ -304,17 +304,14 @@ public class QuizServiceImpl implements QuizService {
         // Fetch exactly 5 random words - ONE efficient query
         List<Word> randomWords = wordRepository.findRandomWords(QUIZ_SIZE);
 
-        // Fetch additional random words for wrong options (cached in same session)
-        List<Word> wrongWordsPool = wordRepository.findRandomWords(QUIZ_SIZE * 2);
-
         int orderNumber = 1;
         for (Word word : randomWords) {
-            QuizQuestion question = createQuestionOptimized(word, quiz, orderNumber++, wrongWordsPool);
+            QuizQuestion question = createQuestionOptimized(word, quiz, orderNumber++);
             quizQuestionRepository.save(question);
         }
     }
 
-    QuizQuestion createQuestionOptimized(Word word, DailyQuiz quiz, int orderNumber, List<Word> wrongWordsPool) {
+    QuizQuestion createQuestionOptimized(Word word, DailyQuiz quiz, int orderNumber) {
         QuizQuestion question = new QuizQuestion();
         question.setQuiz(quiz);
         question.setWord(word);
@@ -327,19 +324,20 @@ public class QuizServiceImpl implements QuizService {
         List<String> options = new ArrayList<>();
         options.add(word.getMeaning()); // Correct answer
 
-        // Use pre-fetched pool for wrong options
-        for (Word wrongWord : wrongWordsPool) {
-            if (options.size() >= 4) break;
-            // FIXED: Compare primitive long values directly
-            if (wrongWord.getId() != word.getId() &&
-                    !wrongWord.getMeaning().equalsIgnoreCase(word.getMeaning())) {
-                options.add(wrongWord.getMeaning());
+        // Distractors come from the same category, nearest to this word's
+        // display order, so similarly positioned words remain plausible.
+        List<Word> categoryWords = wordRepository
+                .findAllByCategoryIdOrderByDisplayOrderAscIdAsc(word.getCategory().getId());
+        int targetIndex = findWordIndex(categoryWords, word.getId());
+        for (int distance = 1; options.size() < 4 && distance < categoryWords.size(); distance++) {
+            addOptionIfValid(options, categoryWords, targetIndex - distance, word);
+            if (options.size() < 4) {
+                addOptionIfValid(options, categoryWords, targetIndex + distance, word);
             }
         }
 
-        // Fill remaining slots if needed
-        while (options.size() < 4) {
-            options.add("Different meaning");
+        if (options.size() < 4) {
+            throw new ApiException("Category must contain at least 4 words with distinct meanings to generate quiz options");
         }
 
         Collections.shuffle(options);
@@ -350,6 +348,30 @@ public class QuizServiceImpl implements QuizService {
         question.setOptionD(options.get(3));
 
         return question;
+    }
+
+    private int findWordIndex(List<Word> categoryWords, long wordId) {
+        for (int index = 0; index < categoryWords.size(); index++) {
+            if (categoryWords.get(index).getId() == wordId) {
+                return index;
+            }
+        }
+        return -1;
+    }
+
+    private void addOptionIfValid(List<String> options, List<Word> categoryWords, int index, Word answerWord) {
+        if (index < 0 || index >= categoryWords.size() || options.size() >= 4) {
+            return;
+        }
+
+        Word candidate = categoryWords.get(index);
+        String meaning = candidate.getMeaning();
+        if (candidate.getId() != answerWord.getId()
+                && meaning != null
+                && !meaning.isBlank()
+                && options.stream().noneMatch(option -> option.equalsIgnoreCase(meaning))) {
+            options.add(meaning);
+        }
     }
 
     QuizQuestionResponseDTO convertToResponseDTO(QuizQuestion question) {
