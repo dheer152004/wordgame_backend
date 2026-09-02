@@ -20,7 +20,7 @@ import java.util.concurrent.ConcurrentHashMap;
 @Slf4j
 public class RateLimitingFilter extends OncePerRequestFilter {
 
-    private static final int MAX_REQUESTS_PER_MINUTE = 5;
+    private static final int MAX_REQUESTS_PER_MINUTE = 100;
     private static final Duration WINDOW = Duration.ofMinutes(1);
 
     private final Map<String, RequestCounter> counters = new ConcurrentHashMap<>();

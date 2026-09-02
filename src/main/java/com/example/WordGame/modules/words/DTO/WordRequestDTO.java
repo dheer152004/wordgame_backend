@@ -5,10 +5,15 @@ import org.springframework.web.multipart.MultipartFile;
 import java.util.List;
 import java.util.Map;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.example.WordGame.modules.words.PartOfSpeech;
+import com.example.WordGame.modules.words.WordType;
 
 @Data
 public class WordRequestDTO {
     private String word;
+    private WordType wordType;
+    private String expandedForm;
+    private PartOfSpeech partOfSpeech;
     private String meaning;
     private String description;
     private Long categoryId;

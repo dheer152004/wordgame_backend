@@ -15,6 +15,8 @@ import com.example.WordGame.modules.quiz.Entities.QuizQuestion;
 import com.example.WordGame.modules.roles.UserShare;
 import com.example.WordGame.modules.savedwords.Entities.UserSavedWord;
 import com.example.WordGame.modules.words.QuizMode;
+import com.example.WordGame.modules.words.PartOfSpeech;
+import com.example.WordGame.modules.words.WordType;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -36,6 +38,17 @@ public class Word {
 
     @Column(nullable = false, length = 255)
     private String word;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "word_type", nullable = false)
+    private WordType wordType = WordType.NORMAL_WORD;
+
+    @Column(name = "expanded_form")
+    private String expandedForm;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "part_of_speech")
+    private PartOfSpeech partOfSpeech;
 
     @Column(nullable = false, columnDefinition = "TEXT")
     private String meaning;

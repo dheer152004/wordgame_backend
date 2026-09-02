@@ -10,6 +10,7 @@ import com.example.WordGame.modules.category.Entities.Category;
 import com.example.WordGame.modules.category.repository.CategoryRepo;
 import com.example.WordGame.modules.words.DTO.*;
 import com.example.WordGame.modules.words.Entities.Word;
+import com.example.WordGame.modules.words.WordType;
 import com.example.WordGame.modules.words.repository.WordRepo;
 
 import lombok.RequiredArgsConstructor;
@@ -109,6 +110,9 @@ public class WordServiceImpl implements WordService {
         WordDetailResponseDTO responseDTO = new WordDetailResponseDTO();
         responseDTO.setId(word.getId());
         responseDTO.setWord(word.getWord());
+        responseDTO.setWordType(word.getWordType());
+        responseDTO.setExpandedForm(word.getExpandedForm());
+        responseDTO.setPartOfSpeech(word.getPartOfSpeech());
         responseDTO.setCategoryId(word.getCategory() != null ? word.getCategory().getId() : null);
         responseDTO.setCategoryName(word.getCategory() != null ? word.getCategory().getName() : null);
         responseDTO.setMeaning(word.getMeaning());
@@ -155,6 +159,7 @@ public class WordServiceImpl implements WordService {
     @Override
     @Transactional
     @Caching(evict = {
+            @CacheEvict(value = "categories", allEntries = true),
             @CacheEvict(value = "words", allEntries = true),
             @CacheEvict(value = "wordDetails", allEntries = true),
             @CacheEvict(value = "randomWords", allEntries = true)  // Clear random words cache
@@ -180,6 +185,9 @@ public class WordServiceImpl implements WordService {
 
         Word word = new Word();
         word.setWord(request.getWord());
+        word.setWordType(request.getWordType() != null ? request.getWordType() : WordType.NORMAL_WORD);
+        word.setExpandedForm(request.getExpandedForm());
+        word.setPartOfSpeech(request.getPartOfSpeech());
         word.setMeaning(request.getMeaning());
         if (request.getDescription() != null) {
             word.setDescription(request.getDescription());
@@ -259,6 +267,7 @@ public class WordServiceImpl implements WordService {
     @Override
     @Transactional
     @Caching(evict = {
+            @CacheEvict(value = "categories", allEntries = true),
             @CacheEvict(value = "words", allEntries = true),
             @CacheEvict(value = "wordDetails", key = "#id"),
             @CacheEvict(value = "randomWords", allEntries = true)  // Clear random words cache
@@ -275,6 +284,18 @@ public class WordServiceImpl implements WordService {
                 throw new ApiException("Word cannot be empty");
             }
             word.setWord(request.getWord());
+        }
+
+        if (request.getWordType() != null) {
+            word.setWordType(request.getWordType());
+        }
+
+        if (request.getExpandedForm() != null) {
+            word.setExpandedForm(request.getExpandedForm());
+        }
+
+        if (request.getPartOfSpeech() != null) {
+            word.setPartOfSpeech(request.getPartOfSpeech());
         }
 
         if (request.getMeaning() != null) {
@@ -383,6 +404,7 @@ public class WordServiceImpl implements WordService {
     @Override
     @Transactional
     @Caching(evict = {
+            @CacheEvict(value = "categories", allEntries = true),
             @CacheEvict(value = "words", allEntries = true),
             @CacheEvict(value = "wordDetails", key = "#id"),
             @CacheEvict(value = "randomWords", allEntries = true)  // Clear random words cache
@@ -414,6 +436,7 @@ public class WordServiceImpl implements WordService {
     @Override
     @Transactional
     @Caching(evict = {
+            @CacheEvict(value = "categories", allEntries = true),
             @CacheEvict(value = "words", allEntries = true),
             @CacheEvict(value = "wordDetails", allEntries = true),
             @CacheEvict(value = "randomWords", allEntries = true)
@@ -458,6 +481,7 @@ public class WordServiceImpl implements WordService {
     @Override
     @Transactional
     @Caching(evict = {
+            @CacheEvict(value = "categories", allEntries = true),
             @CacheEvict(value = "words", allEntries = true),
             @CacheEvict(value = "wordDetails", key = "#id"),
             @CacheEvict(value = "randomWords", allEntries = true)  // Clear random words cache
@@ -532,6 +556,9 @@ public class WordServiceImpl implements WordService {
         WordResponseDTO responseDTO = new WordResponseDTO();
         responseDTO.setId(word.getId());
         responseDTO.setWord(word.getWord());
+        responseDTO.setWordType(word.getWordType());
+        responseDTO.setExpandedForm(word.getExpandedForm());
+        responseDTO.setPartOfSpeech(word.getPartOfSpeech());
         responseDTO.setCategoryId(word.getCategory() != null ? word.getCategory().getId() : null);
         responseDTO.setCategoryName(word.getCategory() != null ? word.getCategory().getName() : null);
         responseDTO.setMeaning(word.getMeaning());
