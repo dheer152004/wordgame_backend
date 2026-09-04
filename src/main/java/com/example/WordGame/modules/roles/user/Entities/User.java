@@ -105,6 +105,9 @@ public class User  implements UserDetails {
     @Column(name = "last_quiz_date")
     private LocalDate lastQuizDate;
 
+    @Column(name = "last_image_quiz_date")
+    private LocalDate lastImageQuizDate;
+
     @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private UserProfile profile;
 

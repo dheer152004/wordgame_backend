@@ -1,6 +1,7 @@
 package com.example.WordGame.modules.quiz.controller;
 
 import com.example.WordGame.modules.quiz.QuizDTO.QuizHistoryDTO;
+import com.example.WordGame.modules.quiz.QuizDTO.ImageQuizSubmissionRequestDTO;
 import com.example.WordGame.modules.quiz.QuizDTO.QuizQuestionResponseDTO;
 import com.example.WordGame.modules.quiz.QuizDTO.QuizResultResponseDTO;
 import com.example.WordGame.modules.quiz.QuizDTO.QuizSubmissionRequestDTO;
@@ -39,6 +40,29 @@ public class QuizController {
         String username = userDetails.getUsername();
         List<QuizQuestionResponseDTO> questions = quizService.getTodayQuiz(username);
         return ResponseEntity.ok(questions);
+    }
+
+    /**
+     * GET /api/quiz/today/image
+     * Get image-based MCQs from words enabled for IMAGE mode.
+     */
+    @GetMapping("/today/image")
+    public ResponseEntity<List<QuizQuestionResponseDTO>> getTodayImageQuiz(
+            @AuthenticationPrincipal UserDetails userDetails) {
+        String username = userDetails.getUsername();
+        return ResponseEntity.ok(quizService.getTodayImageQuiz(username));
+    }
+
+    /**
+     * POST /api/quiz/today/image/submit
+     * Submit image quiz answers. selectedOption is the selected word text.
+     */
+    @PostMapping("/today/image/submit")
+    public ResponseEntity<QuizResultResponseDTO> submitTodayImageQuiz(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @Valid @RequestBody ImageQuizSubmissionRequestDTO submission) {
+        String username = userDetails.getUsername();
+        return ResponseEntity.ok(quizService.submitImageQuiz(username, submission));
     }
 
     /**

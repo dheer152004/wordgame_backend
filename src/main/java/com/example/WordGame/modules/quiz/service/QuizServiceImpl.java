@@ -6,6 +6,7 @@ import com.example.WordGame.modules.quiz.Entities.DailyQuiz;
 import com.example.WordGame.modules.quiz.Entities.QuizAttempt;
 import com.example.WordGame.modules.quiz.Entities.QuizQuestion;
 import com.example.WordGame.modules.quiz.QuizDTO.QuizHistoryDTO;
+import com.example.WordGame.modules.quiz.QuizDTO.ImageQuizSubmissionRequestDTO;
 import com.example.WordGame.modules.quiz.QuizDTO.QuizQuestionResponseDTO;
 import com.example.WordGame.modules.quiz.QuizDTO.QuizResultResponseDTO;
 import com.example.WordGame.modules.quiz.QuizDTO.QuizSubmissionRequestDTO;
@@ -17,6 +18,7 @@ import com.example.WordGame.modules.roles.UserAnswer;
 import com.example.WordGame.modules.roles.user.Entities.User;
 import com.example.WordGame.modules.roles.user.repository.UserRepository;
 import com.example.WordGame.modules.words.Entities.Word;
+import com.example.WordGame.modules.words.QuizMode;
 import com.example.WordGame.modules.words.repository.WordRepo;
 
 import lombok.RequiredArgsConstructor;
@@ -78,6 +80,103 @@ public class QuizServiceImpl implements QuizService {
         return questions.stream()
                 .map(this::convertToResponseDTO)
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<QuizQuestionResponseDTO> getTodayImageQuiz(String userEmail) {
+        User user = getUserByEmail(userEmail);
+        if (LocalDate.now().equals(user.getLastImageQuizDate())) {
+            throw new ApiException("You have already completed today's image quiz!");
+        }
+
+        List<Word> imageWords = wordRepository.findByQuizMode(QuizMode.IMAGE).stream()
+            .filter(word -> word.getImages().stream().anyMatch(image -> image != null && !image.isBlank()))
+            .collect(Collectors.toCollection(ArrayList::new));
+        Collections.shuffle(imageWords);
+        if (imageWords.size() > QUIZ_SIZE) {
+            imageWords = imageWords.subList(0, QUIZ_SIZE);
+        }
+
+        if (imageWords.size() < QUIZ_SIZE) {
+            throw new ApiException("Need at least " + QUIZ_SIZE + " IMAGE quiz words with images");
+        }
+
+        return imageWords.stream()
+                .map(this::createImageQuestionResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional
+    public QuizResultResponseDTO submitImageQuiz(String userEmail, ImageQuizSubmissionRequestDTO submission) {
+        User user = getUserByEmail(userEmail);
+        if (LocalDate.now().equals(user.getLastImageQuizDate())) {
+            throw new ApiException("You have already completed today's image quiz!");
+        }
+        if (submission.getAnswers() == null || submission.getAnswers().size() != QUIZ_SIZE) {
+            throw new ApiException("Exactly " + QUIZ_SIZE + " image quiz answers are required");
+        }
+
+        int totalScore = 0;
+        Set<Long> submittedWordIds = new HashSet<>();
+        List<QuizResultResponseDTO.QuestionResultDTO> results = new ArrayList<>();
+
+        for (ImageQuizSubmissionRequestDTO.AnswerDTO answer : submission.getAnswers()) {
+            if (answer.getWordId() == null || answer.getSelectedOption() == null) {
+                throw new ApiException("wordId and selectedOption are required for every image answer");
+            }
+            if (!submittedWordIds.add(answer.getWordId())) {
+                throw new ApiException("Each image quiz word can be answered only once");
+            }
+
+            Word word = wordRepository.findById(answer.getWordId())
+                    .orElseThrow(() -> new ApiException("Word not found with id: " + answer.getWordId()));
+            if (word.getQuizModes() == null || !word.getQuizModes().contains(QuizMode.IMAGE)) {
+                throw new ApiException("Word is not enabled for IMAGE quiz mode: " + word.getId());
+            }
+
+            boolean isCorrect = word.getWord().equalsIgnoreCase(answer.getSelectedOption().trim());
+            int pointsEarned = isCorrect ? 10 : 0;
+            totalScore += pointsEarned;
+            results.add(QuizResultResponseDTO.QuestionResultDTO.builder()
+                    .questionId(word.getId())
+                    .word(word.getWord())
+                    .isCorrect(isCorrect)
+                    .correctAnswer(word.getWord())
+                    .yourAnswer(answer.getSelectedOption())
+                    .explanation("The image represents: " + word.getWord())
+                    .pointsEarned(pointsEarned)
+                    .build());
+        }
+
+        int totalPossible = submission.getAnswers().size() * 10;
+        BigDecimal percentage = BigDecimal.valueOf(totalScore)
+                .divide(BigDecimal.valueOf(totalPossible), 2, RoundingMode.HALF_UP)
+                .multiply(BigDecimal.valueOf(100));
+        int xpEarned = totalScore / 10;
+        user.setTotalXp(user.getTotalXp() + xpEarned);
+        user.setLevel(calculateLevel(user.getTotalXp()));
+        int updatedStreak = updateStreakFromDate(user, user.getLastImageQuizDate());
+        user.setCurrentStreak(updatedStreak);
+        if (updatedStreak > user.getLongestStreak()) {
+            user.setLongestStreak(updatedStreak);
+        }
+        user.setLastActive(LocalDateTime.now());
+        user.setLastQuizDate(LocalDate.now());
+        user.setLastImageQuizDate(LocalDate.now());
+        userRepository.save(user);
+
+        return QuizResultResponseDTO.builder()
+                .score(totalScore)
+                .totalPossible(totalPossible)
+                .percentage(percentage)
+                .xpEarned(xpEarned)
+                .newTotalXp(user.getTotalXp())
+                .newLevel(user.getLevel())
+                .currentStreak(updatedStreak)
+                .message(getResultMessage(percentage))
+                .details(results)
+                .build();
     }
 
     @Override
@@ -294,15 +393,16 @@ public class QuizServiceImpl implements QuizService {
      * No findAll() - uses native RANDOM() LIMIT query
      */
     void generateQuizQuestionsOptimized(DailyQuiz quiz) {
-        // Quick validation - only gets count, not all records
-        long wordCount = wordRepository.getTotalWordCount();
+        // Text quizzes use only words explicitly enabled for TEXT mode.
+        List<Word> textWords = wordRepository.findByQuizMode(QuizMode.TEXT);
+        long wordCount = textWords.size();
 
         if (wordCount < QUIZ_SIZE) {
             throw new ApiException("Need at least " + QUIZ_SIZE + " words. Found: " + wordCount);
         }
 
-        // Fetch exactly 5 random words - ONE efficient query
-        List<Word> randomWords = wordRepository.findRandomWords(QUIZ_SIZE);
+        Collections.shuffle(textWords);
+        List<Word> randomWords = textWords.subList(0, Math.min(QUIZ_SIZE, textWords.size()));
 
         int orderNumber = 1;
         for (Word word : randomWords) {
@@ -386,9 +486,61 @@ public class QuizServiceImpl implements QuizService {
                 .questionId(question.getId())
                 .wordId(question.getWord().getId())
                 .word(question.getWord().getWord())
+                .quizMode(QuizMode.TEXT.name())
                 .options(options)
                 .points(question.getPoints())
                 .build();
+    }
+
+    private QuizQuestionResponseDTO createImageQuestionResponse(Word word) {
+        List<Word> categoryWords = wordRepository
+                .findAllByCategoryIdOrderByDisplayOrderAscIdAsc(word.getCategory().getId());
+        int targetIndex = findWordIndex(categoryWords, word.getId());
+        List<String> options = new ArrayList<>();
+        options.add(word.getWord());
+
+        for (int distance = 1; options.size() < 4 && distance < categoryWords.size(); distance++) {
+            addWordOptionIfValid(options, categoryWords, targetIndex - distance, word);
+            if (options.size() < 4) {
+                addWordOptionIfValid(options, categoryWords, targetIndex + distance, word);
+            }
+        }
+
+        if (options.size() < 4) {
+            throw new ApiException("Category must contain at least 4 distinct words to generate image quiz options");
+        }
+
+        Collections.shuffle(options);
+        return QuizQuestionResponseDTO.builder()
+            .questionId(word.getId())
+            .wordId(word.getId())
+                .word(word.getWord())
+                .imageUrl(getFirstImageUrl(word))
+                .quizMode(QuizMode.IMAGE.name())
+                .options(options)
+                .points(10)
+                .build();
+    }
+
+    private void addWordOptionIfValid(List<String> options, List<Word> categoryWords, int index, Word answerWord) {
+        if (index < 0 || index >= categoryWords.size() || options.size() >= 4) {
+            return;
+        }
+
+        String candidate = categoryWords.get(index).getWord();
+        if (categoryWords.get(index).getId() != answerWord.getId()
+                && candidate != null
+                && !candidate.isBlank()
+                && options.stream().noneMatch(option -> option.equalsIgnoreCase(candidate))) {
+            options.add(candidate);
+        }
+    }
+
+    private String getFirstImageUrl(Word word) {
+        return word.getImages().stream()
+                .filter(image -> image != null && !image.isBlank())
+                .findFirst()
+                .orElseThrow(() -> new ApiException("IMAGE quiz word has no image: " + word.getId()));
     }
 
     String getCorrectOptionLetter(QuizQuestion question) {
@@ -418,12 +570,15 @@ public class QuizServiceImpl implements QuizService {
     }
 
     int updateStreak(User user) {
-        LocalDate today = LocalDate.now();
-        LocalDate lastQuizDate = user.getLastQuizDate();
+        return updateStreakFromDate(user, user.getLastQuizDate());
+    }
 
-        if (lastQuizDate == null) return 1;
-        if (lastQuizDate.equals(today.minusDays(1))) return user.getCurrentStreak() + 1;
-        if (lastQuizDate.equals(today)) return user.getCurrentStreak();
+    private int updateStreakFromDate(User user, LocalDate previousQuizDate) {
+        LocalDate today = LocalDate.now();
+
+        if (previousQuizDate == null) return Math.max(1, user.getCurrentStreak());
+        if (previousQuizDate.equals(today.minusDays(1))) return user.getCurrentStreak() + 1;
+        if (previousQuizDate.equals(today)) return Math.max(1, user.getCurrentStreak());
         return 1;
     }
 

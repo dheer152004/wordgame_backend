@@ -2,6 +2,7 @@ package com.example.WordGame.modules.words.repository;
 
 import com.example.WordGame.modules.category.Entities.Category;
 import com.example.WordGame.modules.words.Entities.Word;
+import com.example.WordGame.modules.words.QuizMode;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -24,6 +25,9 @@ public interface WordRepo extends JpaRepository<Word, Long> {
     List<Word> findAllByCategoryId(Long categoryId);
 
     List<Word> findAllByCategoryIdOrderByDisplayOrderAscIdAsc(Long categoryId);
+
+    @Query("SELECT DISTINCT w FROM Word w JOIN w.quizModes mode WHERE mode = :mode")
+    List<Word> findByQuizMode(@Param("mode") QuizMode mode);
 
     List<Word> findAllByOrderByDisplayOrderAsc();
 
