@@ -9,6 +9,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 import java.util.HashMap;
 import java.util.Map;
@@ -26,10 +28,12 @@ public class WordController {
     public ResponseEntity<Map<String, Object>> getWordsByCategory(
             @PathVariable String categoryName,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
+            @RequestParam(defaultValue = "10") int size,
+            @AuthenticationPrincipal UserDetails userDetails) {
 
         Pageable pageable = PageRequest.of(page, size, org.springframework.data.domain.Sort.by("displayOrder").ascending());
-        Page<WordResponseDTO> wordsPage = wordService.getWordsByCategory(categoryName, pageable);
+        String userEmail = userDetails != null ? userDetails.getUsername() : null;
+        Page<WordResponseDTO> wordsPage = wordService.getWordsByCategory(categoryName, pageable, userEmail);
 
         Map<String, Object> response = new HashMap<>();
         response.put("words", wordsPage.getContent());

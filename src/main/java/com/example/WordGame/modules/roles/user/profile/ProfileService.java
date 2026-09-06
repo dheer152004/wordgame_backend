@@ -3,6 +3,7 @@ package com.example.WordGame.modules.roles.user.profile;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.example.WordGame.modules.roles.user.UserProfileDTO.ChangePasswordRequestDTO;
+import com.example.WordGame.modules.roles.user.UserProfileDTO.DateOfBirthUpdateRequestDTO;
 import com.example.WordGame.modules.roles.user.UserProfileDTO.ProfileResponseDTO;
 import com.example.WordGame.modules.roles.user.UserProfileDTO.ProfileUpdateRequestDTO;
 import com.example.WordGame.modules.roles.user.UserProfileDTO.StreakResponseDTO;
@@ -14,6 +15,8 @@ public interface ProfileService {
 
     // Update profile (text fields only)
     ProfileResponseDTO updateProfile(String userEmail, ProfileUpdateRequestDTO request);
+
+    ProfileResponseDTO updateDateOfBirth(String userEmail, DateOfBirthUpdateRequestDTO request);
 
     // Upload/Change avatar image
     ProfileResponseDTO uploadAvatar(String userEmail, MultipartFile avatarFile);

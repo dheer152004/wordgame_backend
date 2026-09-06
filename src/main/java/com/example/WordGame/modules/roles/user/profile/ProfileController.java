@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.example.WordGame.modules.roles.user.UserProfileDTO.ChangePasswordRequestDTO;
+import com.example.WordGame.modules.roles.user.UserProfileDTO.DateOfBirthUpdateRequestDTO;
 import com.example.WordGame.modules.roles.user.UserProfileDTO.ProfileResponseDTO;
 import com.example.WordGame.modules.roles.user.UserProfileDTO.ProfileUpdateRequestDTO;
 import com.example.WordGame.modules.roles.user.UserProfileDTO.StreakResponseDTO;
@@ -62,6 +63,20 @@ public class ProfileController {
 
         ProfileResponseDTO updatedProfile = profileService.updateProfile(userEmail, request);
         return ResponseEntity.ok(updatedProfile);
+    }
+
+    @PutMapping("/date-of-birth")
+    public ResponseEntity<ProfileResponseDTO> updateDateOfBirth(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @Valid @RequestBody DateOfBirthUpdateRequestDTO request) {
+        return ResponseEntity.ok(profileService.updateDateOfBirth(userDetails.getUsername(), request));
+    }
+
+    @PatchMapping("/date-of-birth")
+    public ResponseEntity<ProfileResponseDTO> patchDateOfBirth(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @Valid @RequestBody DateOfBirthUpdateRequestDTO request) {
+        return ResponseEntity.ok(profileService.updateDateOfBirth(userDetails.getUsername(), request));
     }
 
     /**

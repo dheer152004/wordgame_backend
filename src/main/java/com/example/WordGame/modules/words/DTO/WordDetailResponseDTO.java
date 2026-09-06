@@ -28,7 +28,9 @@ public class WordDetailResponseDTO {
     private String description;
     @com.fasterxml.jackson.annotation.JsonProperty("source&credits")
     private com.example.WordGame.modules.words.DTO.SourceCreditsDTO sourceAndCredits;
-    private List<String> images;
+    private List<ImageUrlDTO> images;
+    private List<VideoUrlDTO> videos;
+    private List<AudioUrlDTO> audios;
     private List<String> facts;
     private List<String> examples;
     private java.util.List<String> quizModes;

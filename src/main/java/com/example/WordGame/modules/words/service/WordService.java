@@ -13,6 +13,8 @@ public interface WordService {
 
     // Existing methods...
     Page<WordResponseDTO> getWordsByCategory(String categoryName, Pageable pageable);
+
+    Page<WordResponseDTO> getWordsByCategory(String categoryName, Pageable pageable, String userEmail);
     WordDetailResponseDTO getWordDetail(Long wordId);
     WordResponseDTO getWordById(Long id);
     WordResponseDTO createWord(WordRequestDTO request);

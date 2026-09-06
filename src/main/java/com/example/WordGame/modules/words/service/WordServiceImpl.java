@@ -12,6 +12,8 @@ import com.example.WordGame.modules.words.DTO.*;
 import com.example.WordGame.modules.words.Entities.Word;
 import com.example.WordGame.modules.words.WordType;
 import com.example.WordGame.modules.words.repository.WordRepo;
+import com.example.WordGame.modules.roles.user.Entities.UserProfile;
+import com.example.WordGame.modules.roles.user.profile.UserProfileRepository;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -23,9 +25,11 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -43,6 +47,8 @@ public class WordServiceImpl implements WordService {
     private final ModelMapper modelMapper;
     private final ImageStorageService imageUploadService;
     private final ObjectMapper objectMapper;
+    @Autowired
+    private UserProfileRepository userProfileRepository;
 
     // ✅ ONLY ONE NEW METHOD - Random words with caching
     @Override
@@ -80,12 +86,42 @@ public class WordServiceImpl implements WordService {
     @Override
    // @Cacheable(value = "words", key = "#categoryName + '_' + #pageable.pageNumber + '_' + #pageable.pageSize", unless = "#result == null")
     public Page<WordResponseDTO> getWordsByCategory(String categoryName, Pageable pageable) {
+        Category category = resolveCategory(categoryName);
+        return wordRepo.findByCategory(category, pageable).map(this::convertToResponseDTO);
+    }
+
+    private Page<WordResponseDTO> getWordsByCategoryForAge(String categoryName, Pageable pageable, Integer age) {
         log.info("📚 CACHE MISS - Fetching words for category key '{}' page {} from DATABASE", categoryName, pageable.getPageNumber());
 
         Category category = resolveCategory(categoryName);
 
-        return wordRepo.findByCategory(category, pageable)
+        if (age != null && age < 0) {
+            throw new ApiException("Age cannot be negative");
+        }
+
+        return wordRepo.findByCategoryAndAge(category, age,
+                        com.example.WordGame.modules.category.enums.AgeRating.ALL,
+                        com.example.WordGame.modules.category.enums.AgeRating._13_PLUS,
+                        com.example.WordGame.modules.category.enums.AgeRating._16_PLUS,
+                        com.example.WordGame.modules.category.enums.AgeRating._18_PLUS,
+                        pageable)
                 .map(this::convertToResponseDTO);
+    }
+
+    @Override
+    public Page<WordResponseDTO> getWordsByCategory(String categoryName, Pageable pageable, String userEmail) {
+        UserProfile profile = null;
+        if (userEmail != null && !userEmail.isBlank()) {
+            profile = userProfileRepository.findByUser_Username(userEmail).orElse(null);
+        }
+
+        Integer age = profile == null ? null : calculateAge(profile.getDateOfBirth());
+        return getWordsByCategoryForAge(categoryName, pageable, age);
+    }
+
+    private Integer calculateAge(LocalDate dateOfBirth) {
+        if (dateOfBirth == null) return null;
+        return java.time.Period.between(dateOfBirth, LocalDate.now()).getYears();
     }
 
 
@@ -117,7 +153,9 @@ public class WordServiceImpl implements WordService {
         responseDTO.setCategoryName(word.getCategory() != null ? word.getCategory().getName() : null);
         responseDTO.setMeaning(word.getMeaning());
         responseDTO.setDescription(word.getDescription());
-        responseDTO.setImages(word.getImages());
+        responseDTO.setImages(toImageUrls(word.getImages()));
+        responseDTO.setVideos(toVideoUrls(word.getVideos()));
+        responseDTO.setAudios(toAudioUrls(word.getAudios()));
         responseDTO.setSourceAndCredits(parseSourceCredits(word.getSourceCreditsJson()));
         responseDTO.setFacts(parseFacts(word.getFactsJson()));
         responseDTO.setExamples(parseExamples(word.getExamplesJson()));
@@ -206,6 +244,8 @@ public class WordServiceImpl implements WordService {
         word.setUpdatedAt(LocalDateTime.now());
         List<String> images = resolveImagesJson(request);
         if (images != null) word.setImages(images);
+        word.setVideos(resolveVideoUrls(request));
+        word.setAudios(resolveAudioUrls(request));
         word.setFactsJson(resolveFactsJson(request));
         word.setExamplesJson(resolveExamplesJson(request));
         // quiz modes
@@ -316,7 +356,9 @@ public class WordServiceImpl implements WordService {
         }
 
         // handle multiple images
-        if ((request.getImageUrls() != null && !request.getImageUrls().isEmpty()) || (request.getWordImages() != null && !request.getWordImages().isEmpty())) {
+        if ((request.getImages() != null && !request.getImages().isEmpty())
+            || (request.getImageUrls() != null && !request.getImageUrls().isEmpty())
+            || (request.getWordImages() != null && !request.getWordImages().isEmpty())) {
             // delete old images if any
             List<String> oldImages = word.getImages();
             for (String old : oldImages) {
@@ -326,6 +368,16 @@ public class WordServiceImpl implements WordService {
             }
             List<String> images = resolveImagesJson(request);
             word.setImages(images);
+        }
+        if ((request.getVideos() != null && !request.getVideos().isEmpty())
+                || (request.getWordVideos() != null && !request.getWordVideos().isEmpty())) {
+            deleteMediaFiles(word.getVideos());
+            word.setVideos(resolveVideoUrls(request));
+        }
+        if ((request.getAudios() != null && !request.getAudios().isEmpty())
+                || (request.getWordAudios() != null && !request.getWordAudios().isEmpty())) {
+            deleteMediaFiles(word.getAudios());
+            word.setAudios(resolveAudioUrls(request));
         }
 
         if (request.getFacts() != null) {
@@ -563,7 +615,9 @@ public class WordServiceImpl implements WordService {
         responseDTO.setCategoryName(word.getCategory() != null ? word.getCategory().getName() : null);
         responseDTO.setMeaning(word.getMeaning());
         List<String> imgs = word.getImages();
-        responseDTO.setImages(imgs);
+        responseDTO.setImages(toImageUrls(imgs));
+        responseDTO.setVideos(toVideoUrls(word.getVideos()));
+        responseDTO.setAudios(toAudioUrls(word.getAudios()));
         responseDTO.setFacts(parseFacts(word.getFactsJson()));
         responseDTO.setExamples(parseExamples(word.getExamplesJson()));
         responseDTO.setCreated(formatDateTime(word.getCreatedAt()));
@@ -609,6 +663,12 @@ public class WordServiceImpl implements WordService {
 
     private List<String> resolveImagesJson(WordRequestDTO request) {
         List<String> urls = new ArrayList<>();
+        if (request.getImages() != null && !request.getImages().isEmpty()) {
+            request.getImages().stream()
+                    .map(ImageUrlDTO::getImageUrl)
+                    .filter(Objects::nonNull)
+                    .forEach(urls::add);
+        }
         if (request.getImageUrls() != null && !request.getImageUrls().isEmpty()) {
             urls.addAll(request.getImageUrls());
         }
@@ -628,6 +688,67 @@ public class WordServiceImpl implements WordService {
 
         if (urls.isEmpty()) return null;
         return urls;
+    }
+
+    private List<String> resolveVideoUrls(WordRequestDTO request) {
+        List<String> urls = new ArrayList<>();
+        if (request.getVideos() != null) {
+            request.getVideos().stream()
+                .map(VideoUrlDTO::getVideoUrl)
+                .filter(Objects::nonNull)
+                .forEach(urls::add);
+        }
+        uploadMediaFiles(request.getWordVideos(), "words/videos", "video/", urls);
+        return urls;
+    }
+
+    private List<String> resolveAudioUrls(WordRequestDTO request) {
+        List<String> urls = new ArrayList<>();
+        if (request.getAudios() != null) {
+            request.getAudios().stream()
+                .map(AudioUrlDTO::getAudioUrl)
+                .filter(Objects::nonNull)
+                .forEach(urls::add);
+        }
+        uploadMediaFiles(request.getWordAudios(), "words/audios", "audio/", urls);
+        return urls;
+    }
+
+    private void uploadMediaFiles(List<org.springframework.web.multipart.MultipartFile> files,
+                                  String folder, String mediaType, List<String> urls) {
+        if (files == null) return;
+        for (org.springframework.web.multipart.MultipartFile file : files) {
+            if (file != null && !file.isEmpty()) {
+                try {
+                    urls.add(imageUploadService.uploadMedia(file, folder, mediaType));
+                } catch (Exception e) {
+                    throw new ApiException("Failed to upload " + mediaType + " media: " + e.getMessage());
+                }
+            }
+        }
+    }
+
+    private void deleteMediaFiles(List<String> urls) {
+        for (String url : urls) {
+            if (url != null && !url.isBlank()) {
+                try {
+                    imageUploadService.deleteImage(url);
+                } catch (Exception ignored) {
+                }
+            }
+        }
+    }
+
+    private List<ImageUrlDTO> toImageUrls(List<String> urls) {
+        return urls.stream().map(ImageUrlDTO::new).collect(Collectors.toList());
+    }
+
+    private List<VideoUrlDTO> toVideoUrls(List<String> urls) {
+        return urls.stream().map(VideoUrlDTO::new).collect(Collectors.toList());
+    }
+
+    private List<AudioUrlDTO> toAudioUrls(List<String> urls) {
+        return urls.stream().map(AudioUrlDTO::new).collect(Collectors.toList());
     }
 
     private Category resolveCategory(String categoryKey) {

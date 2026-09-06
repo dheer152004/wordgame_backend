@@ -12,6 +12,7 @@ import java.util.List;
 
 import com.example.WordGame.modules.genre.Entities.Genre;
 import com.example.WordGame.modules.words.Entities.Word;
+import com.example.WordGame.modules.category.enums.AgeRating;
 
 @Entity
 @Table(name = "categories")
@@ -36,6 +37,10 @@ public class Category {
 
     @Column(length = 500)
     private String description;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "age_rating", nullable = false, length = 20)
+    private AgeRating ageRating = AgeRating.ALL;
 
     @Column(name = "is_active")
     private Boolean isActive = true;

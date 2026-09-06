@@ -7,6 +7,7 @@ import com.example.WordGame.modules.quiz.repository.QuizAttemptRepository;
 import com.example.WordGame.modules.roles.user.Entities.User;
 import com.example.WordGame.modules.roles.user.Entities.UserProfile;
 import com.example.WordGame.modules.roles.user.UserProfileDTO.ChangePasswordRequestDTO;
+import com.example.WordGame.modules.roles.user.UserProfileDTO.DateOfBirthUpdateRequestDTO;
 import com.example.WordGame.modules.roles.user.UserProfileDTO.ProfileResponseDTO;
 import com.example.WordGame.modules.roles.user.UserProfileDTO.ProfileUpdateRequestDTO;
 import com.example.WordGame.modules.roles.user.UserProfileDTO.StreakResponseDTO;
@@ -136,6 +137,9 @@ public class ProfileServiceImpl implements ProfileService {
         }
 
         if (request.getDateOfBirth() != null) {
+            if (request.getDateOfBirth().isAfter(LocalDate.now())) {
+                throw new ApiException("Date of birth cannot be in the future");
+            }
             profile.setDateOfBirth(request.getDateOfBirth());
         }
 
@@ -167,6 +171,22 @@ public class ProfileServiceImpl implements ProfileService {
         userProfileRepository.save(profile);
 
         log.info("✅ Profile updated successfully for user: {}", userEmail);
+
+        return getProfile(userEmail);
+    }
+
+    @Override
+    @Transactional
+    public ProfileResponseDTO updateDateOfBirth(String userEmail, DateOfBirthUpdateRequestDTO request) {
+        if (request.getDateOfBirth().isAfter(LocalDate.now())) {
+            throw new ApiException("Date of birth cannot be in the future");
+        }
+
+        User user = getUserByEmail(userEmail);
+        UserProfile profile = getOrCreateProfile(user);
+        profile.setDateOfBirth(request.getDateOfBirth());
+        profile.setUpdatedAt(LocalDateTime.now());
+        userProfileRepository.save(profile);
 
         return getProfile(userEmail);
     }

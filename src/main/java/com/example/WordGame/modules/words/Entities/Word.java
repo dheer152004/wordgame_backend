@@ -18,6 +18,7 @@ import com.example.WordGame.modules.words.QuizMode;
 import com.example.WordGame.modules.words.PartOfSpeech;
 import com.example.WordGame.modules.words.WordType;
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 @Entity
@@ -58,6 +59,12 @@ public class Word {
 
     @Column(name = "images", columnDefinition = "TEXT")
     private String imagesJson;
+
+    @Column(name = "videos", columnDefinition = "TEXT")
+    private String videosJson;
+
+    @Column(name = "audios", columnDefinition = "TEXT")
+    private String audiosJson;
 
     @Column(name = "facts", columnDefinition = "TEXT")
     private String factsJson;
@@ -111,13 +118,7 @@ public class Word {
     // private List<WordRelation> incomingRelations = new ArrayList<>();
 
     public List<String> getImages() {
-        if (this.imagesJson == null || this.imagesJson.isBlank()) return new ArrayList<>();
-        try {
-            ObjectMapper mapper = new ObjectMapper();
-            return mapper.readValue(this.imagesJson, new TypeReference<List<String>>(){});
-        } catch (Exception e) {
-            return List.of(this.imagesJson);
-        }
+        return readMediaUrls(this.imagesJson, "imageUrl");
     }
 
     // public String getFirstImage() {
@@ -131,6 +132,53 @@ public class Word {
             this.imagesJson = mapper.writeValueAsString(images);
         } catch (Exception e) {
             this.imagesJson = null;
+        }
+    }
+
+    public List<String> getVideos() {
+        return readMediaUrls(this.videosJson, "videoUrl");
+    }
+
+    public void setVideos(List<String> videos) {
+        this.videosJson = writeMediaUrls(videos);
+    }
+
+    public List<String> getAudios() {
+        return readMediaUrls(this.audiosJson, "audioUrl");
+    }
+
+    public void setAudios(List<String> audios) {
+        this.audiosJson = writeMediaUrls(audios);
+    }
+
+    private List<String> readMediaUrls(String json, String objectUrlField) {
+        if (json == null || json.isBlank()) return new ArrayList<>();
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            JsonNode media = mapper.readTree(json);
+            if (!media.isArray()) return List.of(json);
+
+            List<String> urls = new ArrayList<>();
+            for (JsonNode entry : media) {
+                if (entry.isTextual()) {
+                    urls.add(entry.asText());
+                } else if (entry.isObject() && entry.has(objectUrlField)) {
+                    urls.add(entry.get(objectUrlField).asText());
+                }
+            }
+            return urls;
+        } catch (Exception e) {
+            return List.of(json);
+        }
+    }
+
+    private String writeMediaUrls(List<String> urls) {
+        if (urls == null) return null;
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            return mapper.writeValueAsString(urls);
+        } catch (Exception e) {
+            return null;
         }
     }
 

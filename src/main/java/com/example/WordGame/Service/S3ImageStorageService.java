@@ -36,14 +36,19 @@ public class S3ImageStorageService implements ImageStorageService {
 
     @Override
     public String uploadImage(MultipartFile file, String folder) throws IOException {
+        return uploadMedia(file, folder, "image/");
+    }
+
+    @Override
+    public String uploadMedia(MultipartFile file, String folder, String mediaType) throws IOException {
         if (file == null || file.isEmpty()) {
-            log.warn("Upload attempted with null or empty file");
+            log.warn("Media upload attempted with null or empty file");
             return null;
         }
 
         String contentType = file.getContentType();
-        if (contentType == null || !contentType.startsWith("image/")) {
-            throw new IOException("Only image files are allowed. Found: " + contentType);
+        if (contentType == null || !contentType.startsWith(mediaType)) {
+            throw new IOException("Only " + mediaType + " files are allowed. Found: " + contentType);
         }
 
         String extension = getFileExtension(file.getOriginalFilename());
@@ -66,7 +71,7 @@ public class S3ImageStorageService implements ImageStorageService {
             }
 
             String imageUrl = baseUrl + "/" + objectKey;
-            log.info("Image uploaded successfully to S3: {}", imageUrl);
+            log.info("Media uploaded successfully to S3: {}", imageUrl);
             return imageUrl;
         } catch (S3Exception e) {
             log.error("Failed to upload image to S3: {}", e.getMessage(), e);

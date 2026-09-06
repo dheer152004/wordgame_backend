@@ -83,6 +83,8 @@ public class CategoryServiceImpl implements CategoryService {
         category.setGenre(resolveGenre(request.getGenreId()));
         category.setName(request.getName());
         category.setDescription(request.getDescription());
+        category.setAgeRating(request.getAgeRating() != null ? request.getAgeRating()
+            : com.example.WordGame.modules.category.enums.AgeRating.ALL);
         category.setIsActive(true);
         category.setCreatedAt(LocalDateTime.now());
         category.setUpdatedAt(LocalDateTime.now());
@@ -126,6 +128,10 @@ public class CategoryServiceImpl implements CategoryService {
 
         if (request.getIsActive() != null) {
             category.setIsActive(request.getIsActive());
+        }
+
+        if (request.getAgeRating() != null) {
+            category.setAgeRating(request.getAgeRating());
         }
 
         String imageUrl = resolveImageUrl(request.getImageUrl(), request.getImage());

@@ -16,4 +16,5 @@ public class CategoryResponseDTO {
     private String description;
     private Boolean isActive;
     private Long wordCount;
+    private com.example.WordGame.modules.category.enums.AgeRating ageRating;
 }

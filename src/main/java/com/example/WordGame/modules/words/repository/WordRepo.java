@@ -3,6 +3,7 @@ package com.example.WordGame.modules.words.repository;
 import com.example.WordGame.modules.category.Entities.Category;
 import com.example.WordGame.modules.words.Entities.Word;
 import com.example.WordGame.modules.words.QuizMode;
+import com.example.WordGame.modules.category.enums.AgeRating;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -18,6 +19,19 @@ import java.util.Optional;
 public interface WordRepo extends JpaRepository<Word, Long> {
 
     Page<Word> findByCategory(Category category, Pageable pageable);
+
+        @Query("SELECT w FROM Word w WHERE w.category = :category "
+                + "AND (w.category.ageRating IS NULL OR w.category.ageRating = :allRating "
+                + "OR (:age IS NOT NULL AND w.category.ageRating = :teenRating AND :age >= 13) "
+                + "OR (:age IS NOT NULL AND w.category.ageRating = :sixteenRating AND :age >= 16) "
+                + "OR (:age IS NOT NULL AND w.category.ageRating = :adultRating AND :age >= 18))")
+        Page<Word> findByCategoryAndAge(@Param("category") Category category,
+                       @Param("age") Integer age,
+                       @Param("allRating") AgeRating allRating,
+                       @Param("teenRating") AgeRating teenRating,
+                       @Param("sixteenRating") AgeRating sixteenRating,
+                       @Param("adultRating") AgeRating adultRating,
+                       Pageable pageable);
 
     @Query("SELECT COALESCE(MAX(w.displayOrder), 0) FROM Word w WHERE w.category = :category")
     Long findMaxDisplayOrderByCategory(@Param("category") Category category);

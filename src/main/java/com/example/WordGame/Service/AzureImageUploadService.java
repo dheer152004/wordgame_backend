@@ -49,20 +49,24 @@ public class AzureImageUploadService implements ImageStorageService {
     }
 
     public String uploadImage(MultipartFile file, String folder) throws IOException {
+        return uploadMedia(file, folder, "image/");
+    }
+
+    @Override
+    public String uploadMedia(MultipartFile file, String folder, String mediaType) throws IOException {
         if (file == null || file.isEmpty()) {
-            log.warn("Upload attempted with null or empty file");
+            log.warn("Media upload attempted with null or empty file");
             return null;
         }
 
         if (blobContainerClient == null) {
-            log.error("Azure Storage not initialized. Cannot upload image.");
+            log.error("Azure Storage not initialized. Cannot upload media.");
             throw new IOException("Azure Storage not configured properly");
         }
 
-        // Validate file type
         String contentType = file.getContentType();
-        if (contentType == null || !contentType.startsWith("image/")) {
-            throw new IOException("Only image files are allowed. Found: " + contentType);
+        if (contentType == null || !contentType.startsWith(mediaType)) {
+            throw new IOException("Only " + mediaType + " files are allowed. Found: " + contentType);
         }
 
         // Generate unique filename
@@ -76,7 +80,7 @@ public class AzureImageUploadService implements ImageStorageService {
 
         // Create path: folder/unique-id.jpg (e.g., "categories/abc-123.jpg")
         String blobPath = folder + "/" + UUID.randomUUID().toString() + extension;
-        log.info("Uploading image to: {}", blobPath);
+        log.info("Uploading media to: {}", blobPath);
 
         // Get blob client and upload
         var blobClient = blobContainerClient.getBlobClient(blobPath);
@@ -92,7 +96,7 @@ public class AzureImageUploadService implements ImageStorageService {
 
         // Return the full URL
         String imageUrl = blobClient.getBlobUrl();
-        log.info("Image uploaded successfully: {}", imageUrl);
+        log.info("Media uploaded successfully: {}", imageUrl);
 
         return imageUrl;
     }

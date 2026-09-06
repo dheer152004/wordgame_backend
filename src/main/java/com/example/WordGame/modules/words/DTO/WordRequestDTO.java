@@ -19,7 +19,12 @@ public class WordRequestDTO {
     private Long categoryId;
     private Long displayOrder;
     private List<MultipartFile> wordImages;
+    private List<MultipartFile> wordVideos;
+    private List<MultipartFile> wordAudios;
     private List<String> imageUrls;
+    private List<ImageUrlDTO> images;
+    private List<VideoUrlDTO> videos;
+    private List<AudioUrlDTO> audios;
     
     private List<String> facts;
     private List<String> examples;

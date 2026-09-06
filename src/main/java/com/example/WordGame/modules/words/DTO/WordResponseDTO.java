@@ -28,7 +28,9 @@ public class WordResponseDTO {
     private String categoryName;
     private String meaning;
     private Long displayOrder;
-    private List<String> images;
+    private List<ImageUrlDTO> images;
+    private List<VideoUrlDTO> videos;
+    private List<AudioUrlDTO> audios;
     private String description;
     private List<String> facts;
     private List<String> examples;
