@@ -3,13 +3,14 @@ package com.example.WordGame.Service;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.multipart.MultipartFile;
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3ClientBuilder;
-import software.amazon.awssdk.services.s3.model.ObjectCannedACL;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Exception;
 import software.amazon.awssdk.services.s3.S3Configuration;
@@ -60,7 +61,6 @@ public class S3ImageStorageService implements ImageStorageService {
                     .key(objectKey)
                     .contentType(contentType)
                     .cacheControl("public, max-age=31536000, immutable")
-                    .acl(ObjectCannedACL.PUBLIC_READ)
                     .build();
 
             s3Client.putObject(putObjectRequest, RequestBody.fromInputStream(file.getInputStream(), file.getSize()));
@@ -102,23 +102,15 @@ public class S3ImageStorageService implements ImageStorageService {
         if (props.getBucket() == null || props.getBucket().isBlank()) {
             throw new IllegalStateException("S3 bucket is required when IMAGE_STORAGE_PROVIDER=s3");
         }
-        if (props.getAccessKey() == null || props.getAccessKey().isBlank()) {
-            throw new IllegalStateException("S3 access key is required when IMAGE_STORAGE_PROVIDER=s3");
-        }
-        if (props.getSecretKey() == null || props.getSecretKey().isBlank()) {
-            throw new IllegalStateException("S3 secret key is required when IMAGE_STORAGE_PROVIDER=s3");
-        }
         if (props.getRegion() == null || props.getRegion().isBlank()) {
             throw new IllegalStateException("S3 region is required when IMAGE_STORAGE_PROVIDER=s3");
         }
     }
 
     private S3Client buildClient(S3StorageProperties props) {
-        AwsBasicCredentials credentials = AwsBasicCredentials.create(props.getAccessKey(), props.getSecretKey());
-
         S3ClientBuilder builder = S3Client.builder()
                 .region(Region.of(props.getRegion()))
-                .credentialsProvider(StaticCredentialsProvider.create(credentials));
+            .credentialsProvider(credentialsProvider(props));
 
         if (props.getEndpoint() != null && !props.getEndpoint().isBlank()) {
             builder.endpointOverride(URI.create(props.getEndpoint()));
@@ -129,6 +121,15 @@ public class S3ImageStorageService implements ImageStorageService {
         }
 
         return builder.build();
+    }
+
+    private AwsCredentialsProvider credentialsProvider(S3StorageProperties props) {
+        if (props.getAccessKey() != null && !props.getAccessKey().isBlank()
+                && props.getSecretKey() != null && !props.getSecretKey().isBlank()) {
+            return StaticCredentialsProvider.create(
+                    AwsBasicCredentials.create(props.getAccessKey(), props.getSecretKey()));
+        }
+        return DefaultCredentialsProvider.create();
     }
 
     private String buildDefaultUrl() {

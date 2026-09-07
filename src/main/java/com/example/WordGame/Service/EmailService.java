@@ -3,63 +3,59 @@ package com.example.WordGame.Service;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
-import org.springframework.mail.MailException;
 
 import com.example.WordGame.modules.roles.user.Entities.User;
 
-import jakarta.mail.internet.MimeMessage;
 import java.util.ArrayList;
 import java.util.List;
+import software.amazon.awssdk.services.ses.SesClient;
+import software.amazon.awssdk.services.ses.model.Body;
+import software.amazon.awssdk.services.ses.model.Content;
+import software.amazon.awssdk.services.ses.model.Destination;
+import software.amazon.awssdk.services.ses.model.Message;
+import software.amazon.awssdk.services.ses.model.SendEmailRequest;
 
 @Service
 public class EmailService {
 
-    private final JavaMailSender mailSender;
+    private final SesClient sesClient;
 
     @Value("${app.mail.from:no-reply@wordgame.example}")
     private String from;
 
-    @Value("${app.mail.provider:gmail}")
+    @Value("${app.mail.provider:ses}")
     private String mailProvider;
-
-    @Value("${app.mail.host:}")
-    private String host;
-
-    @Value("${app.mail.port:587}")
-    private Integer port;
-
-    @Value("${app.mail.username:}")
-    private String username;
-
-    @Value("${app.mail.password:}")
-    private String password;
 
     private final Logger logger = LoggerFactory.getLogger(EmailService.class);
 
-    public EmailService(JavaMailSender mailSender) {
-        this.mailSender = mailSender;
+    public EmailService(SesClient sesClient) {
+        this.sesClient = sesClient;
     }
     @Async
     public void sendHtmlEmail(String to, String subject, String htmlBody){
-        if (mailSender == null) {
-            logger.warn("Mail sender is not configured. Skipping email delivery to {}.", to);
+        if (!"ses".equalsIgnoreCase(mailProvider)) {
+            logger.debug("Email provider '{}' is disabled for this profile", mailProvider);
+            return;
+        }
+        if (sesClient == null) {
+            logger.warn("SES client is not configured. Skipping email delivery to {}.", to);
             return;
         }
 
         try {
-            MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-            helper.setFrom("noreply@klugword.com", "KLUG");
-            helper.setTo(to);
-            helper.setSubject(subject);
-            helper.setText(htmlBody, true);
-            mailSender.send(message);
+            Message message = Message.builder()
+                    .subject(Content.builder().data(subject).charset("UTF-8").build())
+                    .body(Body.builder().html(Content.builder().data(htmlBody).charset("UTF-8").build()).build())
+                    .build();
+            sesClient.sendEmail(SendEmailRequest.builder()
+                    .source(from)
+                    .destination(Destination.builder().toAddresses(to).build())
+                    .message(message)
+                    .build());
             logger.debug("Sent email to {} subject={} via {}", to, subject, mailProvider);
-        } catch (MailException | jakarta.mail.MessagingException | java.io.UnsupportedEncodingException ex) {
+        } catch (software.amazon.awssdk.services.ses.model.SesException ex) {
             logger.error("Failed to send email to {}", to, ex);
         }
     }

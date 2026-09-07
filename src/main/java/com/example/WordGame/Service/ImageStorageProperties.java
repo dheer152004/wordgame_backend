@@ -5,7 +5,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = "app.image-storage")
 public class ImageStorageProperties {
 
-    private String provider = "azure";
+    private String provider = "s3";
 
     public String getProvider() {
         return provider;

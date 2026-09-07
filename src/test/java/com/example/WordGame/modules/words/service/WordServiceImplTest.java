@@ -1,6 +1,6 @@
 package com.example.WordGame.modules.words.service;
 
-import com.example.WordGame.Service.AzureImageUploadService;
+import com.example.WordGame.Service.ImageStorageService;
 import com.example.WordGame.modules.category.Entities.Category;
 import com.example.WordGame.modules.category.repository.CategoryRepo;
 import com.example.WordGame.modules.words.DTO.WordDetailResponseDTO;
@@ -24,6 +24,7 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.mockito.Mockito.mock;
 
 class WordServiceImplTest {
 
@@ -94,7 +95,7 @@ class WordServiceImplTest {
                 wordRepo,
                 categoryRepo,
                 new ModelMapper(),
-                new AzureImageUploadService(),
+                mock(ImageStorageService.class),
                 new ObjectMapper()
         );
 
@@ -160,7 +161,7 @@ class WordServiceImplTest {
                 wordRepo,
                 categoryRepo,
                 new ModelMapper(),
-                new AzureImageUploadService(),
+                mock(ImageStorageService.class),
                 new ObjectMapper()
         );
 
@@ -231,7 +232,7 @@ class WordServiceImplTest {
                 wordRepo,
                 categoryRepo,
                 new ModelMapper(),
-                new AzureImageUploadService(),
+                mock(ImageStorageService.class),
                 new ObjectMapper()
         );
 

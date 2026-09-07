@@ -25,5 +25,5 @@ COPY --from=build /app/target/*.jar app.jar
 
 EXPOSE 8080
 
-# Clean entrypoint allowing Azure Environment Variables to safely override configurations
+# Runtime configuration is supplied through AWS environment variables or IAM roles.
 ENTRYPOINT ["java", "-jar", "app.jar"]

@@ -223,7 +223,6 @@ public class CategoryServiceImpl implements CategoryService {
 
         if (imageFile != null && !imageFile.isEmpty()) {
             try {
-                // upload to azure under categories folder
                 return imageUploadService.uploadImage(imageFile, "categories");
             } catch (IOException e) {
                 log.error("Failed to upload image: {}", e.getMessage());

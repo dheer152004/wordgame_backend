@@ -38,10 +38,11 @@
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-validation</artifactId>
 		</dependency>
-		<!-- Mail (SMTP) -->
+		<!-- AWS SES -->
 		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-mail</artifactId>
+			<groupId>software.amazon.awssdk</groupId>
+			<artifactId>ses</artifactId>
+			<version>2.21.0</version>
 		</dependency>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
@@ -53,25 +54,18 @@
 		</dependency>
 
 		<!-- Database -->
-		<!-- <dependency>
+		<dependency>
 			<groupId>org.postgresql</groupId>
 			<artifactId>postgresql</artifactId>
 			<version>42.7.3</version>
 			<scope>runtime</scope>
-		</dependency> -->
+		</dependency>
 
 		<dependency>
             <groupId>com.h2database</groupId>
             <artifactId>h2</artifactId>
             <scope>runtime</scope>
         </dependency>
-
-		<!-- Azure Storage Blob (For images) - Standalone, no BOM needed -->
-		<dependency>
-			<groupId>com.azure</groupId>
-			<artifactId>azure-storage-blob</artifactId>
-			<version>12.25.0</version>
-		</dependency>
 
 		<!-- JWT -->
 		<dependency>
@@ -116,11 +110,23 @@
 			<version>2.6.0</version>
 		</dependency>
 
-		<!-- AWS S3 SDK for Cloudflare R2 (Optional - if you still use Cloudflare) -->
+		<!-- AWS S3 SDK -->
 		<dependency>
 			<groupId>software.amazon.awssdk</groupId>
 			<artifactId>s3</artifactId>
 			<version>2.21.0</version>
+		</dependency>
+
+		<!-- AWS Lambda + API Gateway proxy adapter -->
+		<dependency>
+			<groupId>com.amazonaws.serverless</groupId>
+			<artifactId>aws-serverless-java-container-springboot3</artifactId>
+			<version>2.1.2</version>
+		</dependency>
+		<dependency>
+			<groupId>com.amazonaws</groupId>
+			<artifactId>aws-lambda-java-core</artifactId>
+			<version>1.2.3</version>
 		</dependency>
 
 		<!-- Oauth Clients-->
