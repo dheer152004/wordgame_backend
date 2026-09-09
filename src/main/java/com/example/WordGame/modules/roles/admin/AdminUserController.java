@@ -68,7 +68,7 @@ public class AdminUserController {
             return ResponseEntity.ok(java.util.Map.of("total", list.size(), "users", list));
         } catch (org.springframework.dao.DataAccessException ex) {
             // View might not exist at runtime; fall back to join-aggregate query
-            String joinSql = "SELECT U.ID, U.USERNAME, GROUP_CONCAT(UR.ROLES) AS ROLES " +
+                String joinSql = "SELECT U.ID, U.USERNAME, STRING_AGG(UR.ROLES, ',') AS ROLES " +
                     "FROM USERS U LEFT JOIN USER_ROLES UR ON U.ID = UR.USER_ID " +
                     "GROUP BY U.ID, U.USERNAME";
             List<UserWithRolesDTO> list = jdbcTemplate.query(joinSql, (rs, rowNum) -> {

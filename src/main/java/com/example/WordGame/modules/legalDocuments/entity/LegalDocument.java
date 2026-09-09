@@ -3,9 +3,12 @@ package com.example.WordGame.modules.legalDocuments.entity;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.example.WordGame.modules.legalDocuments.enums.LegalDocumentType;
 import jakarta.persistence.*;
+import org.hibernate.annotations.JdbcTypeCode;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+
+import java.sql.Types;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -31,7 +34,7 @@ public class LegalDocument {
     @Column(nullable = false)
     private String title;
 
-    @Lob
+    @JdbcTypeCode(Types.LONGVARCHAR)
     @Column(name = "content", columnDefinition = "TEXT")
     private String content;
 

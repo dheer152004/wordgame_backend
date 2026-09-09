@@ -9,7 +9,7 @@ public class WordGameApplication {
 
 	public static void main(String[] args) {
 		ConfigurableApplicationContext context = SpringApplication.run(WordGameApplication.class, args);
-		String port = context.getEnvironment().getProperty("server.port", "8080");
+		String port = context.getEnvironment().getProperty("server.port", "8082");
 		System.out.println("wordgame Backend Started on http://localhost:" + port);
 	}
 
