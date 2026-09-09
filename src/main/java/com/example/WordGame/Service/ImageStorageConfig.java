@@ -6,7 +6,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 
 @Configuration
-@EnableConfigurationProperties({ImageStorageProperties.class, S3StorageProperties.class})
+@EnableConfigurationProperties(S3StorageProperties.class)
 public class ImageStorageConfig {
 
     @Bean

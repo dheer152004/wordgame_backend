@@ -5,12 +5,11 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = "app.image-storage.s3")
 public class S3StorageProperties {
 
-    private String region = "us-east-1";
+    private String region = "ap-south-1";
     private String endpoint = "";
     private String bucket = "";
     private String accessKey = "";
     private String secretKey = "";
-    private String publicUrl = "";
     private boolean forcePathStyle = false;
 
     public String getRegion() {
@@ -51,14 +50,6 @@ public class S3StorageProperties {
 
     public void setSecretKey(String secretKey) {
         this.secretKey = secretKey;
-    }
-
-    public String getPublicUrl() {
-        return publicUrl;
-    }
-
-    public void setPublicUrl(String publicUrl) {
-        this.publicUrl = publicUrl;
     }
 
     public boolean isForcePathStyle() {

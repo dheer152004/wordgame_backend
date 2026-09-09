@@ -1,64 +1,48 @@
-package com.example.WordGame.Service;
+package com.example.WordGame.Service.Email;
 
+// import com.example.WordGame.Service.Email.EmailSender;
+import com.example.WordGame.modules.roles.user.Entities.User;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
-import com.example.WordGame.modules.roles.user.Entities.User;
-
 import java.util.ArrayList;
 import java.util.List;
-import software.amazon.awssdk.services.ses.SesClient;
-import software.amazon.awssdk.services.ses.model.Body;
-import software.amazon.awssdk.services.ses.model.Content;
-import software.amazon.awssdk.services.ses.model.Destination;
-import software.amazon.awssdk.services.ses.model.Message;
-import software.amazon.awssdk.services.ses.model.SendEmailRequest;
 
 @Service
 public class EmailService {
 
-    private final SesClient sesClient;
+    private final EmailSender emailSender;
 
-    @Value("${app.mail.from:no-reply@wordgame.example}")
+    @Value("${app.mail.from}")
     private String from;
-
-    @Value("${app.mail.provider:ses}")
-    private String mailProvider;
 
     private final Logger logger = LoggerFactory.getLogger(EmailService.class);
 
-    public EmailService(SesClient sesClient) {
-        this.sesClient = sesClient;
+    public EmailService(EmailSender emailSender) {
+        this.emailSender = emailSender;
     }
+
     @Async
-    public void sendHtmlEmail(String to, String subject, String htmlBody){
-        if (!"ses".equalsIgnoreCase(mailProvider)) {
-            logger.debug("Email provider '{}' is disabled for this profile", mailProvider);
-            return;
-        }
-        if (sesClient == null) {
-            logger.warn("SES client is not configured. Skipping email delivery to {}.", to);
+    public void sendHtmlEmail(String to, String subject, String htmlBody) {
+
+        if (to == null || to.isBlank()) {
+            logger.warn("Email recipient is empty");
             return;
         }
 
         try {
-            Message message = Message.builder()
-                    .subject(Content.builder().data(subject).charset("UTF-8").build())
-                    .body(Body.builder().html(Content.builder().data(htmlBody).charset("UTF-8").build()).build())
-                    .build();
-            sesClient.sendEmail(SendEmailRequest.builder()
-                    .source(from)
-                    .destination(Destination.builder().toAddresses(to).build())
-                    .message(message)
-                    .build());
-            logger.debug("Sent email to {} subject={} via {}", to, subject, mailProvider);
-        } catch (software.amazon.awssdk.services.ses.model.SesException ex) {
+            emailSender.send(to, subject, htmlBody, from);
+            logger.info("Email successfully sent to {} with subject '{}'",
+                    to, subject);
+        } catch (RuntimeException ex) {
             logger.error("Failed to send email to {}", to, ex);
         }
     }
+
+    
 
     public void sendWelcomeEmail(User user) {
         if (user == null || user.getEmail() == null) return;
@@ -68,6 +52,8 @@ public class EmailService {
         sendHtmlEmail(user.getEmail(), "Welcome to WordGame", body);
     }
 
+
+
     public void sendOtpEmail(User user, String otp) {
         if (user == null || user.getEmail() == null) return;
         String body = String.format(
@@ -75,6 +61,8 @@ public class EmailService {
                 user.getUsername() != null ? user.getUsername() : "player", otp);
         sendHtmlEmail(user.getEmail(), "Your WordGame verification code", body);
     }
+
+
 
     public void sendEmailVerification(User user, String verificationUrl) {
         if (user == null || user.getEmail() == null || verificationUrl == null || verificationUrl.isBlank()) return;
@@ -84,6 +72,9 @@ public class EmailService {
                 verificationUrl);
         sendHtmlEmail(user.getEmail(), "Verify your WordGame email", body);
     }
+
+
+
     public void sendPasswordResetEmail(User user, String resetUrl) {
         if (user == null || user.getEmail() == null || resetUrl == null || resetUrl.isBlank()) return;
         String body = String.format(
@@ -92,6 +83,9 @@ public class EmailService {
                 resetUrl);
         sendHtmlEmail(user.getEmail(), "Reset your WordGame password", body);
     }
+
+
+
     public void sendNewItemNotification(String itemName, List<String> recipientEmails) {
         if (recipientEmails == null || recipientEmails.isEmpty()) return;
         String subject = "New item added: " + itemName;
@@ -111,3 +105,4 @@ public class EmailService {
         sendNewItemNotification(itemName, emails);
     }
 }
+

@@ -65,12 +65,7 @@ public class S3ImageStorageService implements ImageStorageService {
 
             s3Client.putObject(putObjectRequest, RequestBody.fromInputStream(file.getInputStream(), file.getSize()));
 
-            String baseUrl = properties.getPublicUrl();
-            if (baseUrl == null || baseUrl.isBlank()) {
-                baseUrl = buildDefaultUrl();
-            }
-
-            String imageUrl = baseUrl + "/" + objectKey;
+            String imageUrl = buildDefaultUrl() + "/" + objectKey;
             log.info("Media uploaded successfully to S3: {}", imageUrl);
             return imageUrl;
         } catch (S3Exception e) {
@@ -141,10 +136,7 @@ public class S3ImageStorageService implements ImageStorageService {
     }
 
     private String extractObjectKey(String imageUrl) {
-        String baseUrl = properties.getPublicUrl();
-        if (baseUrl == null || baseUrl.isBlank()) {
-            baseUrl = buildDefaultUrl();
-        }
+        String baseUrl = buildDefaultUrl();
         String normalizedBase = baseUrl.replaceAll("/+$", "");
         if (imageUrl.startsWith(normalizedBase + "/")) {
             return imageUrl.substring(normalizedBase.length() + 1);

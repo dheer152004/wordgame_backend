@@ -1,6 +1,6 @@
 package com.example.WordGame.modules.auth.service;
 
-import com.example.WordGame.Service.EmailService;
+import com.example.WordGame.Service.Email.EmailService;
 import com.example.WordGame.exceptions.ApiException;
 import com.example.WordGame.modules.auth.DTO.LoginRequest;
 import com.example.WordGame.modules.auth.DTO.LoginResponseDTO;

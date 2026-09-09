@@ -7,10 +7,8 @@ Spring Boot backend for the WordGame application.
 Use the `aws` Spring profile in AWS deployments:
 
 ```text
-SPRING_PROFILES_ACTIVE=aws
-AWS_REGION=us-east-1
+AWS_REGION=ap-south-1
 S3_BUCKET=your-bucket
-CLOUDFRONT_URL=https://your-distribution.cloudfront.net
 DB_URL=jdbc:postgresql://your-rds-host:5432/wordgame?sslmode=require
 DB_USERNAME=your-db-user
 DB_PASSWORD=your-db-password
@@ -18,7 +16,7 @@ MAIL_FROM=verified-sender@example.com
 JWT_SECRET_KEY=your-production-jwt-secret
 ```
 
-S3 media uses `DefaultCredentialsProvider`, so Lambda, ECS, or EC2 should use an IAM role instead of access keys. The role needs S3 read/write/delete permissions and SES `ses:SendEmail` permission.
+S3 media currently returns direct S3 object URLs. It uses `DefaultCredentialsProvider`, so Lambda, ECS, or EC2 should use an IAM role instead of access keys. The role needs S3 read/write/delete permissions and SES `ses:SendEmail` permission.
 
 The API Gateway Lambda handler is:
 
@@ -28,4 +26,4 @@ com.example.WordGame.StreamLambdaHandler::handleRequest
 
 The SES sender must be verified in the selected AWS region. New SES accounts may remain in the SES sandbox until production access is approved.
 
-For local development, keep `SPRING_PROFILES_ACTIVE=local`; it uses the local H2 database and in-memory cache.
+The application requires PostgreSQL connection variables before startup.
