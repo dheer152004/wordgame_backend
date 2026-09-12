@@ -27,6 +27,8 @@ public interface ProfileService {
     // Delete the authenticated user's account and user-owned data
     void deleteProfile(String userEmail);
 
+    void deleteProfile(String userEmail, String reason);
+
     // Change password
     void changePassword(String userEmail, ChangePasswordRequestDTO request);
 

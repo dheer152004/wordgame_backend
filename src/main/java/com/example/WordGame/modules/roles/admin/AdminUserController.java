@@ -1,5 +1,7 @@
 package com.example.WordGame.modules.roles.admin;
 
+import com.example.WordGame.modules.auth.entity.PendingRegistration;
+import com.example.WordGame.modules.auth.repository.PendingRegistrationRepository;
 import com.example.WordGame.modules.roles.Role;
 import com.example.WordGame.modules.roles.user.DTO.RoleUpdateRequest;
 import com.example.WordGame.modules.roles.user.Entities.User;
@@ -9,7 +11,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.access.prepost.PreAuthorize;
 
+import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.Arrays;
@@ -23,6 +27,7 @@ import java.util.stream.Collectors;
 public class AdminUserController {
 
     private final UserRepository userRepository;
+    private final PendingRegistrationRepository pendingRegistrationRepository;
     private final JdbcTemplate jdbcTemplate;
 
     @PostMapping("/{id}/roles")
@@ -85,5 +90,19 @@ public class AdminUserController {
             });
             return ResponseEntity.ok(java.util.Map.of("total", list.size(), "users", list));
         }
+    }
+
+    @GetMapping("/pending-registrations")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<java.util.Map<String, Object>> listPendingRegistrations() {
+        List<PendingRegistrationDTO> registrations = pendingRegistrationRepository
+                .findAllByVerificationExpiresAtAfterOrderByIdAsc(LocalDateTime.now())
+                .stream()
+                .map(PendingRegistrationDTO::from)
+                .toList();
+
+        return ResponseEntity.ok(java.util.Map.of(
+                "total", registrations.size(),
+                "registrations", registrations));
     }
 }

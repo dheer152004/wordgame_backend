@@ -89,12 +89,12 @@ public class CategoryServiceImpl implements CategoryService {
         category.setCreatedAt(LocalDateTime.now());
         category.setUpdatedAt(LocalDateTime.now());
 
-        String imageUrl = resolveImageUrl(request.getImageUrl(), request.getImage());
-        if (imageUrl != null) {
-            category.setImageUrl(imageUrl);
-        }
-
         Category savedCategory = categoryRepo.save(category);
+        String imageUrl = resolveImageUrl(request.getImageUrl(), request.getImage(), savedCategory.getName(), savedCategory.getId());
+        if (imageUrl != null) {
+            savedCategory.setImageUrl(imageUrl);
+            savedCategory = categoryRepo.save(savedCategory);
+        }
         log.info("✅ Category saved with ID: {}", savedCategory.getId());
         return toResponseDto(savedCategory);
     }
@@ -134,7 +134,7 @@ public class CategoryServiceImpl implements CategoryService {
             category.setAgeRating(request.getAgeRating());
         }
 
-        String imageUrl = resolveImageUrl(request.getImageUrl(), request.getImage());
+        String imageUrl = resolveImageUrl(request.getImageUrl(), request.getImage(), category.getName(), category.getId());
         if (imageUrl != null) {
             category.setImageUrl(imageUrl);
         }
@@ -216,14 +216,14 @@ public class CategoryServiceImpl implements CategoryService {
         return dto;
     }
 
-    private String resolveImageUrl(String imageUrl, MultipartFile imageFile) {
+    private String resolveImageUrl(String imageUrl, MultipartFile imageFile, String resourceName, Long resourceId) {
         if (imageUrl != null && !imageUrl.isBlank()) {
             return imageUrl;
         }
 
         if (imageFile != null && !imageFile.isEmpty()) {
             try {
-                return imageUploadService.uploadImage(imageFile, "categories");
+                return imageUploadService.uploadMedia(imageFile, "category", "image/", resourceName, resourceId, 1);
             } catch (IOException e) {
                 log.error("Failed to upload image: {}", e.getMessage());
                 return null;

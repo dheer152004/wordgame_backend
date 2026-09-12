@@ -274,7 +274,14 @@ public class ProfileServiceImpl implements ProfileService {
     @Override
     @Transactional
     public void deleteProfile(String userEmail) {
-        log.info("🗑️ Deleting profile for user: {}", userEmail);
+        deleteProfile(userEmail, null);
+    }
+
+    @Override
+    @Transactional
+    public void deleteProfile(String userEmail, String reason) {
+        log.info("🗑️ Deleting profile for user: {}. Reason: {}", userEmail,
+                reason == null || reason.isBlank() ? "Not provided" : reason.trim());
 
         User user = getUserByEmail(userEmail);
 

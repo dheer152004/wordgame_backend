@@ -13,6 +13,7 @@ import com.example.WordGame.modules.roles.user.UserProfileDTO.DateOfBirthUpdateR
 import com.example.WordGame.modules.roles.user.UserProfileDTO.ProfileResponseDTO;
 import com.example.WordGame.modules.roles.user.UserProfileDTO.ProfileUpdateRequestDTO;
 import com.example.WordGame.modules.roles.user.UserProfileDTO.StreakResponseDTO;
+import com.example.WordGame.modules.roles.user.UserProfileDTO.DeleteAccountRequestDTO;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -111,8 +112,9 @@ public class ProfileController {
      */
     @DeleteMapping
     public ResponseEntity<Map<String, String>> deleteProfile(
-            @AuthenticationPrincipal UserDetails userDetails) {
-        profileService.deleteProfile(userDetails.getUsername());
+            @AuthenticationPrincipal UserDetails userDetails,
+            @Valid @RequestBody(required = false) DeleteAccountRequestDTO request) {
+        profileService.deleteProfile(userDetails.getUsername(), request != null ? request.getReason() : null);
 
         Map<String, String> response = new HashMap<>();
         response.put("message", "Profile deleted successfully");

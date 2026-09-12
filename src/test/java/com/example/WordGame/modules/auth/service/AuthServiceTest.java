@@ -6,6 +6,7 @@ import com.example.WordGame.modules.auth.DTO.LoginRequest;
 import com.example.WordGame.modules.auth.DTO.LoginResponseDTO;
 import com.example.WordGame.modules.auth.DTO.RegisterRequest;
 import com.example.WordGame.modules.auth.repository.AuthUtil;
+import com.example.WordGame.modules.auth.repository.PendingRegistrationRepository;
 import com.example.WordGame.modules.roles.Role;
 import com.example.WordGame.modules.roles.user.Entities.User;
 import com.example.WordGame.modules.roles.user.repository.UserRepository;
@@ -32,6 +33,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 class AuthServiceTest {
 
     private UserRepository userRepository;
+    private PendingRegistrationRepository pendingRegistrationRepository;
     private AuthenticationManager authenticationManager;
     private AuthUtil authUtil;
     private PasswordEncoder passwordEncoder;
@@ -70,6 +72,15 @@ class AuthServiceTest {
             }
         };
         emailService = new EmailService(null);
+        pendingRegistrationRepository = (PendingRegistrationRepository) Proxy.newProxyInstance(
+            PendingRegistrationRepository.class.getClassLoader(),
+            new Class[]{PendingRegistrationRepository.class},
+            (proxy, method, args) -> {
+                if (method.getReturnType().equals(boolean.class)) return false;
+                if (method.getReturnType().equals(Optional.class)) return Optional.empty();
+                if (method.getName().equals("save")) return args[0];
+                return null;
+            });
         storedUser = null;
         authenticatedUser = null;
 
@@ -127,6 +138,7 @@ class AuthServiceTest {
 
         authService = new AuthService(
                 userRepository,
+            pendingRegistrationRepository,
                 authenticationManager,
                 authUtil,
                 passwordEncoder,

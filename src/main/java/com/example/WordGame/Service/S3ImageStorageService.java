@@ -42,6 +42,12 @@ public class S3ImageStorageService implements ImageStorageService {
 
     @Override
     public String uploadMedia(MultipartFile file, String folder, String mediaType) throws IOException {
+        return uploadMedia(file, folder, mediaType, "media", null, 1);
+    }
+
+    @Override
+    public String uploadMedia(MultipartFile file, String folder, String mediaType,
+                              String resourceName, Long resourceId, int mediaNumber) throws IOException {
         if (file == null || file.isEmpty()) {
             log.warn("Media upload attempted with null or empty file");
             return null;
@@ -53,7 +59,14 @@ public class S3ImageStorageService implements ImageStorageService {
         }
 
         String extension = getFileExtension(file.getOriginalFilename());
-        String objectKey = folder + "/" + UUID.randomUUID() + extension;
+        String objectKey;
+        if (resourceId != null) {
+            String mediaKind = mediaType.replace("/", "").toLowerCase();
+            objectKey = folder + "/" + resourceId + "." + mediaKind + "." + mediaNumber + extension;
+        } else {
+            String objectName = sanitizeName(resourceName);
+            objectKey = folder + "/" + objectName + "-" + UUID.randomUUID() + "-media-" + mediaNumber + extension;
+        }
 
         try {
             PutObjectRequest putObjectRequest = PutObjectRequest.builder()
@@ -150,5 +163,15 @@ public class S3ImageStorageService implements ImageStorageService {
             return ".jpg";
         }
         return filename.substring(filename.lastIndexOf('.'));
+    }
+
+    private String sanitizeName(String name) {
+        if (name == null || name.isBlank()) {
+            return "media";
+        }
+        return name.trim()
+                .replaceAll("[^a-zA-Z0-9_-]+", "-")
+                .replaceAll("-+", "-")
+                .replaceAll("^-|-$", "");
     }
 }

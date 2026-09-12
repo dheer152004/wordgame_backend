@@ -5,7 +5,9 @@ import com.example.WordGame.exceptions.ApiException;
 import com.example.WordGame.modules.auth.DTO.LoginRequest;
 import com.example.WordGame.modules.auth.DTO.LoginResponseDTO;
 import com.example.WordGame.modules.auth.DTO.RegisterRequest;
+import com.example.WordGame.modules.auth.entity.PendingRegistration;
 import com.example.WordGame.modules.auth.repository.AuthUtil;
+import com.example.WordGame.modules.auth.repository.PendingRegistrationRepository;
 import com.example.WordGame.modules.roles.Role;
 import com.example.WordGame.modules.roles.user.Entities.User;
 import com.example.WordGame.modules.roles.user.repository.UserRepository;
@@ -19,6 +21,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.net.HttpURLConnection;
@@ -35,6 +38,7 @@ import java.io.InputStream;
 @Slf4j
 public class AuthService {
     private final UserRepository userRepository;
+    private final PendingRegistrationRepository pendingRegistrationRepository;
     private final AuthenticationManager authenticationManager;
     private final AuthUtil authUtil;
     private final PasswordEncoder passwordEncoder;
@@ -106,8 +110,10 @@ public class AuthService {
         log.info("Register attempt: username='{}' email='{}'", username, email);
 
         // Check if username or email exists
-        boolean usernameExists = username != null && userRepository.existsByUsername(username);
-        boolean emailExists = email != null && userRepository.existsByEmail(email);
+        boolean usernameExists = username != null && (userRepository.existsByUsername(username)
+            || hasActivePendingUsername(username));
+        boolean emailExists = email != null && (userRepository.existsByEmail(email)
+            || hasActivePendingEmail(email));
         log.info("existsByUsername={} existsByEmail={}", usernameExists, emailExists);
 
         if (usernameExists) {
@@ -116,31 +122,15 @@ public class AuthService {
         if (emailExists) {
             throw new ApiException("Email already exists");
         }
-        // Create user
-        User user = new User();
-        user.setUsername(username);
-        user.setEmail(email);
-        user.setPassword(passwordEncoder.encode(registerRequest.getPassword()));
-        user.setDisplayName(registerRequest.getDisplayName() != null ? registerRequest.getDisplayName() : registerRequest.getUsername());
-        user.setAvatarUrl("https://ui-avatars.com/api/?background=random&name=" + registerRequest.getUsername());
-        // Assign default role USER (use insertion-ordered set for predictable output)
-        java.util.Set<Role> roles = new java.util.LinkedHashSet<>();
-        roles.add(Role.USER);
-        user.setRoles(roles);
-
-        user.setProvider(com.example.WordGame.modules.auth.Provider.EMAIL);
-        user = userRepository.save(user);
-        createConsentRecords(user, registerRequest);
-        maybeSendEmailVerification(user);
+        PendingRegistration pending = createPendingRegistration(registerRequest, username, email, "USER");
 
         return LoginResponseDTO.builder()
-                .id(user.getId())
-                .username(user.getUsername())
-                .email(user.getEmail())
-                .displayName(user.getDisplayName())
-                .roles(user.getRoles() == null ? java.util.List.of() : user.getRoles().stream().map(Enum::name).toList())
+            .username(pending.getUsername())
+            .email(pending.getEmail())
+            .displayName(pending.getDisplayName())
+            .roles(java.util.List.of(Role.USER.name()))
                 .provider("email")
-                .emailVerified(Boolean.TRUE.equals(user.getEmailVerified()))
+            .emailVerified(false)
                 .build();
     }
 
@@ -153,8 +143,10 @@ public class AuthService {
         String username = registerRequest.getUsername() != null ? registerRequest.getUsername().trim() : null;
         String email = registerRequest.getEmail() != null ? registerRequest.getEmail().trim() : null;
 
-        boolean usernameExists = username != null && userRepository.existsByUsername(username);
-        boolean emailExists = email != null && userRepository.existsByEmail(email);
+        boolean usernameExists = username != null && (userRepository.existsByUsername(username)
+            || hasActivePendingUsername(username));
+        boolean emailExists = email != null && (userRepository.existsByEmail(email)
+            || hasActivePendingEmail(email));
 
         if (usernameExists) {
             throw new ApiException("Username already exists");
@@ -163,32 +155,15 @@ public class AuthService {
             throw new ApiException("Email already exists");
         }
 
-        User user = new User();
-        user.setUsername(username);
-        user.setEmail(email);
-        user.setPassword(passwordEncoder.encode(registerRequest.getPassword()));
-        user.setDisplayName(registerRequest.getDisplayName() != null ? registerRequest.getDisplayName() : registerRequest.getUsername());
-        user.setAvatarUrl("https://ui-avatars.com/api/?background=random&name=" + registerRequest.getUsername());
-        // Use insertion-ordered set so roles serialize as USER, EDITOR, ADMIN
-        java.util.Set<Role> roles = new java.util.LinkedHashSet<>();
-        roles.add(Role.USER);
-        roles.add(Role.EDITOR);
-        roles.add(Role.ADMIN);
-        user.setRoles(roles);
-
-        user.setProvider(com.example.WordGame.modules.auth.Provider.EMAIL);
-        user = userRepository.save(user);
-        createConsentRecords(user, registerRequest);
-        maybeSendEmailVerification(user);
+        PendingRegistration pending = createPendingRegistration(registerRequest, username, email, "USER,EDITOR,ADMIN");
 
         return LoginResponseDTO.builder()
-                .id(user.getId())
-                .username(user.getUsername())
-                .email(user.getEmail())
-                .displayName(user.getDisplayName())
-                .roles(user.getRoles() == null ? java.util.List.of() : user.getRoles().stream().map(Enum::name).toList())
+            .username(pending.getUsername())
+            .email(pending.getEmail())
+            .displayName(pending.getDisplayName())
+            .roles(java.util.Arrays.stream(pending.getRole().split(",")).toList())
                 .provider("email")
-                .emailVerified(Boolean.TRUE.equals(user.getEmailVerified()))
+            .emailVerified(false)
                 .build();
     }
 
@@ -306,9 +281,35 @@ public class AuthService {
                 .build();
     }
 
+    @Transactional
     public boolean verifyEmail(String token) {
         if (token == null || token.isBlank()) {
             throw new ApiException("Verification token is required");
+        }
+
+        PendingRegistration pending = pendingRegistrationRepository.findByVerificationToken(token).orElse(null);
+        if (pending != null) {
+            if (pending.getVerificationExpiresAt().isBefore(LocalDateTime.now())) {
+                throw new ApiException("Verification token has expired");
+            }
+
+            User user = new User();
+            user.setUsername(pending.getUsername());
+            user.setEmail(pending.getEmail());
+            user.setPassword(pending.getPassword());
+            user.setDisplayName(pending.getDisplayName());
+            user.setAvatarUrl(pending.getAvatarUrl());
+            user.setProvider(com.example.WordGame.modules.auth.Provider.EMAIL);
+            user.setEmailVerified(true);
+            java.util.Set<Role> roles = new java.util.LinkedHashSet<>();
+            for (String roleName : pending.getRole().split(",")) {
+                roles.add(Role.valueOf(roleName));
+            }
+            user.setRoles(roles);
+            user = userRepository.save(user);
+            createConsentRecords(user, pending);
+            pendingRegistrationRepository.delete(pending);
+            return true;
         }
 
         User user = userRepository.findAll().stream()
@@ -325,6 +326,63 @@ public class AuthService {
         user.setEmailVerificationExpiresAt(null);
         userRepository.save(user);
         return true;
+    }
+
+    private PendingRegistration createPendingRegistration(RegisterRequest registerRequest, String username,
+                                                          String email, String role) {
+        PendingRegistration pending = new PendingRegistration();
+        pending.setUsername(username);
+        pending.setEmail(email);
+        pending.setPassword(passwordEncoder.encode(registerRequest.getPassword()));
+        pending.setDisplayName(registerRequest.getDisplayName() != null
+                ? registerRequest.getDisplayName() : username);
+        pending.setAvatarUrl("https://ui-avatars.com/api/?background=random&name=" + username);
+        pending.setRole(role);
+        pending.setVerificationToken(UUID.randomUUID().toString());
+        pending.setVerificationExpiresAt(LocalDateTime.now().plusDays(1));
+        pending.setAcceptedDocumentIds(registerRequest.getAcceptedDocuments() == null
+                ? registerRequest.getLegalDocumentId() == null ? null : registerRequest.getLegalDocumentId().toString()
+                : registerRequest.getAcceptedDocuments().stream().filter(java.util.Objects::nonNull)
+                    .map(String::valueOf).collect(java.util.stream.Collectors.joining(",")));
+        pending.setAcceptedFrom(registerRequest.getPlatform() != null && !registerRequest.getPlatform().isBlank()
+                ? registerRequest.getPlatform() : registerRequest.getAcceptedFrom());
+        pending = pendingRegistrationRepository.save(pending);
+
+        User emailUser = new User();
+        emailUser.setUsername(pending.getUsername());
+        emailUser.setEmail(pending.getEmail());
+        emailService.sendEmailVerification(emailUser, verificationUrlTemplate + pending.getVerificationToken());
+        return pending;
+    }
+
+    private boolean hasActivePendingUsername(String username) {
+        return pendingRegistrationRepository.findAll().stream()
+                .filter(pending -> username.equals(pending.getUsername()))
+                .anyMatch(this::isActivePending);
+    }
+
+    private boolean hasActivePendingEmail(String email) {
+        return pendingRegistrationRepository.findAll().stream()
+                .filter(pending -> email.equalsIgnoreCase(pending.getEmail()))
+                .anyMatch(this::isActivePending);
+    }
+
+    private boolean isActivePending(PendingRegistration pending) {
+        if (pending.getVerificationExpiresAt() != null
+                && pending.getVerificationExpiresAt().isBefore(LocalDateTime.now())) {
+            pendingRegistrationRepository.delete(pending);
+            return false;
+        }
+        return true;
+    }
+
+    private void createConsentRecords(User user, PendingRegistration pending) {
+        if (pending.getAcceptedDocumentIds() == null || pending.getAcceptedDocumentIds().isBlank()) {
+            return;
+        }
+        for (String id : pending.getAcceptedDocumentIds().split(",")) {
+            userConsentService.createConsent(user.getId(), Long.valueOf(id), pending.getAcceptedFrom());
+        }
     }
 
     public java.util.Map<String, Object> forgotPassword(String email) {

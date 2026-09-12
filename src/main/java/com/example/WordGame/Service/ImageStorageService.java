@@ -10,5 +10,8 @@ public interface ImageStorageService {
 
     String uploadMedia(MultipartFile file, String folder, String mediaType) throws IOException;
 
+    String uploadMedia(MultipartFile file, String folder, String mediaType,
+                       String resourceName, Long resourceId, int mediaNumber) throws IOException;
+
     void deleteImage(String imageUrl);
 }

@@ -242,10 +242,6 @@ public class WordServiceImpl implements WordService {
         }
         word.setCreatedAt(LocalDateTime.now());
         word.setUpdatedAt(LocalDateTime.now());
-        List<String> images = resolveImagesJson(request);
-        if (images != null) word.setImages(images);
-        word.setVideos(resolveVideoUrls(request));
-        word.setAudios(resolveAudioUrls(request));
         word.setFactsJson(resolveFactsJson(request));
         word.setExamplesJson(resolveExamplesJson(request));
         // quiz modes
@@ -295,6 +291,12 @@ public class WordServiceImpl implements WordService {
         }
 
         Word savedWord = wordRepo.save(word);
+
+        List<String> images = resolveImagesJson(request, savedWord.getWord(), savedWord.getId());
+        if (images != null) savedWord.setImages(images);
+        savedWord.setVideos(resolveVideoUrls(request, savedWord.getWord(), savedWord.getId()));
+        savedWord.setAudios(resolveAudioUrls(request, savedWord.getWord(), savedWord.getId()));
+        savedWord = wordRepo.save(savedWord);
 
         // build response DTO
         WordResponseDTO responseDTO = convertToResponseDTO(savedWord);
@@ -366,18 +368,18 @@ public class WordServiceImpl implements WordService {
                     try { imageUploadService.deleteImage(old); } catch (Exception ignored) {}
                 }
             }
-            List<String> images = resolveImagesJson(request);
+            List<String> images = resolveImagesJson(request, word.getWord(), word.getId());
             word.setImages(images);
         }
         if ((request.getVideos() != null && !request.getVideos().isEmpty())
                 || (request.getWordVideos() != null && !request.getWordVideos().isEmpty())) {
             deleteMediaFiles(word.getVideos());
-            word.setVideos(resolveVideoUrls(request));
+            word.setVideos(resolveVideoUrls(request, word.getWord(), word.getId()));
         }
         if ((request.getAudios() != null && !request.getAudios().isEmpty())
                 || (request.getWordAudios() != null && !request.getWordAudios().isEmpty())) {
             deleteMediaFiles(word.getAudios());
-            word.setAudios(resolveAudioUrls(request));
+            word.setAudios(resolveAudioUrls(request, word.getWord(), word.getId()));
         }
 
         if (request.getFacts() != null) {
@@ -661,7 +663,7 @@ public class WordServiceImpl implements WordService {
                 .toList();
     }
 
-    private List<String> resolveImagesJson(WordRequestDTO request) {
+    private List<String> resolveImagesJson(WordRequestDTO request, String resourceName, Long resourceId) {
         List<String> urls = new ArrayList<>();
         if (request.getImages() != null && !request.getImages().isEmpty()) {
             request.getImages().stream()
@@ -674,10 +676,11 @@ public class WordServiceImpl implements WordService {
         }
 
         if (request.getWordImages() != null && !request.getWordImages().isEmpty()) {
+            int mediaNumber = 1;
             for (org.springframework.web.multipart.MultipartFile mf : request.getWordImages()) {
                 if (mf != null && !mf.isEmpty()) {
                     try {
-                        String u = imageUploadService.uploadImage(mf, "words");
+                        String u = imageUploadService.uploadMedia(mf, "word", "image/", resourceName, resourceId, mediaNumber++);
                         urls.add(u);
                     } catch (Exception e) {
                         throw new ApiException("Failed to upload image: " + e.getMessage());
@@ -690,7 +693,7 @@ public class WordServiceImpl implements WordService {
         return urls;
     }
 
-    private List<String> resolveVideoUrls(WordRequestDTO request) {
+    private List<String> resolveVideoUrls(WordRequestDTO request, String resourceName, Long resourceId) {
         List<String> urls = new ArrayList<>();
         if (request.getVideos() != null) {
             request.getVideos().stream()
@@ -698,11 +701,11 @@ public class WordServiceImpl implements WordService {
                 .filter(Objects::nonNull)
                 .forEach(urls::add);
         }
-        uploadMediaFiles(request.getWordVideos(), "words/videos", "video/", urls);
+        uploadMediaFiles(request.getWordVideos(), "word", "video/", resourceName, resourceId, urls);
         return urls;
     }
 
-    private List<String> resolveAudioUrls(WordRequestDTO request) {
+    private List<String> resolveAudioUrls(WordRequestDTO request, String resourceName, Long resourceId) {
         List<String> urls = new ArrayList<>();
         if (request.getAudios() != null) {
             request.getAudios().stream()
@@ -710,17 +713,20 @@ public class WordServiceImpl implements WordService {
                 .filter(Objects::nonNull)
                 .forEach(urls::add);
         }
-        uploadMediaFiles(request.getWordAudios(), "words/audios", "audio/", urls);
+        uploadMediaFiles(request.getWordAudios(), "word", "audio/", resourceName, resourceId, urls);
         return urls;
     }
 
     private void uploadMediaFiles(List<org.springframework.web.multipart.MultipartFile> files,
-                                  String folder, String mediaType, List<String> urls) {
+                                  String folder, String mediaType, String resourceName,
+                                  Long resourceId, List<String> urls) {
         if (files == null) return;
+        int mediaNumber = 1;
         for (org.springframework.web.multipart.MultipartFile file : files) {
             if (file != null && !file.isEmpty()) {
                 try {
-                    urls.add(imageUploadService.uploadMedia(file, folder, mediaType));
+                    urls.add(imageUploadService.uploadMedia(file, folder, mediaType,
+                            resourceName, resourceId, mediaNumber++));
                 } catch (Exception e) {
                     throw new ApiException("Failed to upload " + mediaType + " media: " + e.getMessage());
                 }
