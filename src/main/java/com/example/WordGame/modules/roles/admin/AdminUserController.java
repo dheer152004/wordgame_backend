@@ -6,19 +6,19 @@ import com.example.WordGame.modules.roles.Role;
 import com.example.WordGame.modules.roles.user.DTO.RoleUpdateRequest;
 import com.example.WordGame.modules.roles.user.Entities.User;
 import com.example.WordGame.modules.roles.user.repository.UserRepository;
+import com.example.WordGame.modules.roles.admin.Entities.DeletedUser;
+import com.example.WordGame.modules.roles.admin.Repositories.DeletedUserRepository;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.access.prepost.PreAuthorize;
 
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
-import java.util.Arrays;
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.Map;
 
 @RestController
 @RequestMapping(value = "/api/admin/users", produces = "application/json")
@@ -28,7 +28,7 @@ public class AdminUserController {
 
     private final UserRepository userRepository;
     private final PendingRegistrationRepository pendingRegistrationRepository;
-    private final JdbcTemplate jdbcTemplate;
+    private final DeletedUserRepository deletedUserRepository;
 
     @PostMapping("/{id}/roles")
     public ResponseEntity<?> updateUserRoles(@PathVariable Long id, @RequestBody RoleUpdateRequest req) {
@@ -55,42 +55,78 @@ public class AdminUserController {
     }
 
     @GetMapping("")
-    public ResponseEntity<java.util.Map<String, Object>> listUsersWithRoles() {
-        String viewSql = "SELECT ID, USERNAME, ROLES FROM USER_WITH_ROLES";
-        try {
-            List<UserWithRolesDTO> list = jdbcTemplate.query(viewSql, (rs, rowNum) -> {
-                UserWithRolesDTO dto = new UserWithRolesDTO();
-                dto.setId(rs.getLong("ID"));
-                dto.setUsername(rs.getString("USERNAME"));
-                String rolesStr = rs.getString("ROLES");
-                List<String> roles = rolesStr == null || rolesStr.isBlank()
-                        ? List.of()
-                        : Arrays.stream(rolesStr.split(",")).map(String::trim).collect(Collectors.toList());
-                dto.setRoles(roles);
-                dto.setRoleCount(roles.size());
-                return dto;
-            });
-            return ResponseEntity.ok(java.util.Map.of("total", list.size(), "users", list));
-        } catch (org.springframework.dao.DataAccessException ex) {
-            // View might not exist at runtime; fall back to join-aggregate query
-                String joinSql = "SELECT U.ID, U.USERNAME, STRING_AGG(UR.ROLES, ',') AS ROLES " +
-                    "FROM USERS U LEFT JOIN USER_ROLES UR ON U.ID = UR.USER_ID " +
-                    "GROUP BY U.ID, U.USERNAME";
-            List<UserWithRolesDTO> list = jdbcTemplate.query(joinSql, (rs, rowNum) -> {
-                UserWithRolesDTO dto = new UserWithRolesDTO();
-                dto.setId(rs.getLong("ID"));
-                dto.setUsername(rs.getString("USERNAME"));
-                String rolesStr = rs.getString("ROLES");
-                List<String> roles = rolesStr == null || rolesStr.isBlank()
-                        ? List.of()
-                        : Arrays.stream(rolesStr.split(",")).map(String::trim).collect(Collectors.toList());
-                dto.setRoles(roles);
-                dto.setRoleCount(roles.size());
-                return dto;
-            });
-            return ResponseEntity.ok(java.util.Map.of("total", list.size(), "users", list));
-        }
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Map<String, Object>> listUsersWithDetails() {
+        List<AdminUserDetailsDTO> users = userRepository.findAll().stream()
+                .map(this::toAdminUserDetails)
+                .toList();
+        return ResponseEntity.ok(Map.of("total", users.size(), "users", users));
     }
+
+    @GetMapping("/deleted")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Map<String, Object>> listDeletedUsers() {
+        List<DeletedUserDTO> users = deletedUserRepository.findAllByOrderByDeletedAtDesc().stream()
+                .map(this::toDeletedUserDetails)
+                .toList();
+        return ResponseEntity.ok(Map.of("total", users.size(), "users", users));
+    }
+
+    @GetMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<AdminUserDetailsDTO> getUserDetails(@PathVariable Long id) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        return ResponseEntity.ok(toAdminUserDetails(user));
+    }
+
+    private AdminUserDetailsDTO toAdminUserDetails(User user) {
+        return AdminUserDetailsDTO.builder()
+                .id(user.getId())
+                .username(user.getUsername())
+                .email(user.getEmail())
+                .displayName(user.getDisplayName())
+                .avatarUrl(user.getAvatarUrl())
+                .bio(user.getBio())
+                .isGuest(user.getIsGuest())
+                .isActive(user.getIsActive())
+                .emailVerified(user.getEmailVerified())
+                .lastLogin(user.getLastLogin())
+                .lastActive(user.getLastActive())
+                .createdAt(user.getCreatedAt())
+                .updatedAt(user.getUpdatedAt())
+                .totalXp(user.getTotalXp())
+                .currentStreak(user.getCurrentStreak())
+                .longestStreak(user.getLongestStreak())
+                .level(user.getLevel())
+                .roles(user.getRoles())
+                .provider(user.getProvider())
+                .build();
+    }
+
+            private DeletedUserDTO toDeletedUserDetails(DeletedUser user) {
+            List<String> roles = user.getRoles() == null || user.getRoles().isBlank()
+                ? List.of()
+                : List.of(user.getRoles().split(","));
+            return DeletedUserDTO.builder()
+                .id(user.getId())
+                .originalUserId(user.getOriginalUserId())
+                .username(user.getUsername())
+                .email(user.getEmail())
+                .displayName(user.getDisplayName())
+                .avatarUrl(user.getAvatarUrl())
+                .bio(user.getBio())
+                .isGuest(user.getIsGuest())
+                .emailVerified(user.getEmailVerified())
+                .lastLogin(user.getLastLogin())
+                .lastActive(user.getLastActive())
+                .createdAt(user.getCreatedAt())
+                .deletedAt(user.getDeletedAt())
+                .deletionReason(user.getDeletionReason())
+                .roles(roles)
+                .build();
+            }
 
     @GetMapping("/pending-registrations")
     @PreAuthorize("hasRole('ADMIN')")

@@ -12,6 +12,8 @@ import com.example.WordGame.modules.roles.user.UserProfileDTO.ProfileResponseDTO
 import com.example.WordGame.modules.roles.user.UserProfileDTO.ProfileUpdateRequestDTO;
 import com.example.WordGame.modules.roles.user.UserProfileDTO.StreakResponseDTO;
 import com.example.WordGame.modules.roles.user.repository.UserRepository;
+import com.example.WordGame.modules.roles.admin.Entities.DeletedUser;
+import com.example.WordGame.modules.roles.admin.Repositories.DeletedUserRepository;
 import com.example.WordGame.modules.roles.repository.LeaderboardCacheRepository;
 import com.example.WordGame.modules.savedwords.repository.UserSavedWordRepository;
 import com.example.WordGame.modules.userConsent.repository.UserConsentRepository;
@@ -28,6 +30,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -42,6 +45,7 @@ public class ProfileServiceImpl implements ProfileService {
     private final ImageStorageService imageUploadService;
     private final UserConsentRepository userConsentRepository;
     private final LeaderboardCacheRepository leaderboardCacheRepository;
+    private final DeletedUserRepository deletedUserRepository;
 
     @Override
     public ProfileResponseDTO getProfile(String userEmail) {
@@ -284,6 +288,27 @@ public class ProfileServiceImpl implements ProfileService {
                 reason == null || reason.isBlank() ? "Not provided" : reason.trim());
 
         User user = getUserByEmail(userEmail);
+
+        DeletedUser deletedUser = DeletedUser.builder()
+            .originalUserId(user.getId())
+            .username(user.getUsername())
+            .email(user.getEmail())
+            .displayName(user.getDisplayName())
+            .avatarUrl(user.getAvatarUrl())
+            .bio(user.getBio())
+            .isGuest(user.getIsGuest())
+            .emailVerified(user.getEmailVerified())
+            .lastLogin(user.getLastLogin())
+            .lastActive(user.getLastActive())
+            .createdAt(user.getCreatedAt())
+            .deletedAt(LocalDateTime.now())
+            .deletionReason(reason == null || reason.isBlank() ? null : reason.trim())
+            .roles(user.getRoles() == null ? null : user.getRoles().stream()
+                .map(Enum::name)
+                .sorted()
+                .collect(Collectors.joining(",")))
+            .build();
+        deletedUserRepository.save(deletedUser);
 
         // These associations are not cascaded from User. Shared content and
         // all image files are intentionally left untouched.
