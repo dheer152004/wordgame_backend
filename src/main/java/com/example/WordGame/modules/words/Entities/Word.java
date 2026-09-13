@@ -22,9 +22,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 @Entity
-@Table(name = "words", indexes = {
-        @Index(name = "idx_category_display_order", columnList = "category_id, display_order")
-})
+@Table(name = "words")
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
@@ -33,9 +31,17 @@ public class Word {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "category_id", nullable = false)
-    private Category category;
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(name = "word_categories",
+            joinColumns = @JoinColumn(name = "word_id"),
+            inverseJoinColumns = @JoinColumn(name = "category_id"))
+    private java.util.Set<Category> categories = new java.util.LinkedHashSet<>();
+
+    @ElementCollection
+    @CollectionTable(name = "word_category_display_orders", joinColumns = @JoinColumn(name = "word_id"))
+    @MapKeyColumn(name = "category_id")
+    @Column(name = "display_order")
+    private java.util.Map<Long, Long> categoryDisplayOrders = new java.util.HashMap<>();
 
     @Column(nullable = false, length = 255)
     private String word;
@@ -87,9 +93,6 @@ public class Word {
     @Column(name = "share_count")
     private Integer shareCount = 0;
 
-    @Column(name = "display_order")
-    private Long displayOrder;
-
     @Column(name = "created_at")
     private LocalDateTime createdAt = LocalDateTime.now();
 
@@ -119,6 +122,27 @@ public class Word {
 
     public List<String> getImages() {
         return readMediaUrls(this.imagesJson, "imageUrl");
+    }
+
+    public void setCategories(java.util.Set<Category> categories) {
+        this.categories = categories == null ? new java.util.LinkedHashSet<>() : categories;
+    }
+
+    public long getCategoryDisplayOrder(Long categoryId) {
+        if (categoryId != null && categoryDisplayOrders != null && categoryDisplayOrders.containsKey(categoryId)) {
+            return categoryDisplayOrders.get(categoryId);
+        }
+        return Long.MAX_VALUE;
+    }
+
+    public void setCategoryDisplayOrder(Long categoryId, Long order) {
+        if (categoryDisplayOrders == null) categoryDisplayOrders = new java.util.HashMap<>();
+        categoryDisplayOrders.put(categoryId, order);
+    }
+
+    public void setCategoryDisplayOrderIfAbsent(Long categoryId, Long order) {
+        if (categoryDisplayOrders == null) categoryDisplayOrders = new java.util.HashMap<>();
+        categoryDisplayOrders.putIfAbsent(categoryId, order);
     }
 
     // public String getFirstImage() {

@@ -18,13 +18,13 @@ import java.util.Optional;
 @Repository
 public interface WordRepo extends JpaRepository<Word, Long> {
 
-    Page<Word> findByCategory(Category category, Pageable pageable);
+    Page<Word> findByCategoriesContaining(Category category, Pageable pageable);
 
-        @Query("SELECT w FROM Word w WHERE w.category = :category "
-                + "AND (w.category.ageRating IS NULL OR w.category.ageRating = :allRating "
-                + "OR (:age IS NOT NULL AND w.category.ageRating = :teenRating AND :age >= 13) "
-                + "OR (:age IS NOT NULL AND w.category.ageRating = :sixteenRating AND :age >= 16) "
-                + "OR (:age IS NOT NULL AND w.category.ageRating = :adultRating AND :age >= 18))")
+        @Query("SELECT w FROM Word w JOIN w.categories category WHERE category = :category "
+            + "AND (category.ageRating IS NULL OR category.ageRating = :allRating "
+            + "OR (:age IS NOT NULL AND category.ageRating = :teenRating AND :age >= 13) "
+            + "OR (:age IS NOT NULL AND category.ageRating = :sixteenRating AND :age >= 16) "
+            + "OR (:age IS NOT NULL AND category.ageRating = :adultRating AND :age >= 18))")
         Page<Word> findByCategoryAndAge(@Param("category") Category category,
                        @Param("age") Integer age,
                        @Param("allRating") AgeRating allRating,
@@ -33,21 +33,17 @@ public interface WordRepo extends JpaRepository<Word, Long> {
                        @Param("adultRating") AgeRating adultRating,
                        Pageable pageable);
 
-    @Query("SELECT COALESCE(MAX(w.displayOrder), 0) FROM Word w WHERE w.category = :category")
-    Long findMaxDisplayOrderByCategory(@Param("category") Category category);
+    List<Word> findAllByCategoriesContaining(Category category);
 
-    List<Word> findAllByCategoryId(Long categoryId);
+    @Query("SELECT w FROM Word w JOIN w.categories category WHERE category.id = :categoryId")
+    List<Word> findAllByCategoryId(@Param("categoryId") Long categoryId);
 
-    List<Word> findAllByCategoryIdOrderByDisplayOrderAscIdAsc(Long categoryId);
+    long countByCategoriesContaining(Category category);
 
     @Query("SELECT DISTINCT w FROM Word w JOIN w.quizModes mode WHERE mode = :mode")
     List<Word> findByQuizMode(@Param("mode") QuizMode mode);
 
-    List<Word> findAllByOrderByDisplayOrderAsc();
-
     Optional<Word> findByWord(String word);
-
-    long countByCategory(Category category);
 
     // ✅ FOR POSTGRESQL - Use RANDOM() instead of RAND()
     @Query(value = "SELECT * FROM words ORDER BY RANDOM() LIMIT :limit", nativeQuery = true)

@@ -17,6 +17,7 @@ public class WordRequestDTO {
     private String meaning;
     private String description;
     private Long categoryId;
+    private List<Long> categoryIds;
     private Long displayOrder;
     private List<MultipartFile> wordImages;
     private List<MultipartFile> wordVideos;

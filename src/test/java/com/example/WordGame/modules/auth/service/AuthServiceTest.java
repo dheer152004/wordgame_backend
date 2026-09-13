@@ -138,7 +138,7 @@ class AuthServiceTest {
 
         authService = new AuthService(
                 userRepository,
-            pendingRegistrationRepository,
+                pendingRegistrationRepository,
                 authenticationManager,
                 authUtil,
                 passwordEncoder,

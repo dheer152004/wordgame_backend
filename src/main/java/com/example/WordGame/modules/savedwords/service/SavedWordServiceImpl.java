@@ -61,7 +61,7 @@ public class SavedWordServiceImpl implements SavedWordService {
                 .word(word.getWord())
                 .meaning(word.getMeaning())
                 .images(word.getImages())
-                .categoryName(word.getCategory().getName())
+                .categoryName(word.getCategories().stream().findFirst().map(category -> category.getName()).orElse(null))
                 .notes(saved.getNotes())
                 .build();
     }
@@ -128,7 +128,7 @@ public class SavedWordServiceImpl implements SavedWordService {
                 .word(word.getWord())
                 .meaning(word.getMeaning())
                 .images(word.getImages())
-                .categoryName(word.getCategory().getName())
+                .categoryName(word.getCategories().stream().findFirst().map(category -> category.getName()).orElse(null))
                 .notes(savedWord.getNotes())
                 .build();
     }

@@ -157,7 +157,7 @@ public class CategoryServiceImpl implements CategoryService {
         Category category = categoryRepo.findById(id)
                 .orElseThrow(() -> new ApiException("Category not found with id: " + id));
 
-        long wordCount = wordRepo.countByCategory(category);
+        long wordCount = wordRepo.countByCategoriesContaining(category);
         if (wordCount > 0) {
             throw new ApiException("Cannot delete category with " + wordCount + " words. Delete or move words first.");
         }
@@ -212,7 +212,7 @@ public class CategoryServiceImpl implements CategoryService {
         CategoryResponseDTO dto = modelMapper.map(category, CategoryResponseDTO.class);
         dto.setGenreId(category.getGenre() != null ? category.getGenre().getId() : null);
         dto.setGenreName(category.getGenre() != null ? category.getGenre().getName() : null);
-        dto.setWordCount(wordRepo.countByCategory(category));
+        dto.setWordCount(wordRepo.countByCategoriesContaining(category));
         return dto;
     }
 

@@ -23,6 +23,8 @@ public class WordDetailResponseDTO {
     private PartOfSpeech partOfSpeech;
     private Long categoryId;
     private String categoryName;
+    private List<Long> categoryIds;
+    private List<String> categoryNames;
     private String meaning;
     private Long displayOrder;
     private String description;

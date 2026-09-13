@@ -87,7 +87,7 @@ public class WordServiceImpl implements WordService {
    // @Cacheable(value = "words", key = "#categoryName + '_' + #pageable.pageNumber + '_' + #pageable.pageSize", unless = "#result == null")
     public Page<WordResponseDTO> getWordsByCategory(String categoryName, Pageable pageable) {
         Category category = resolveCategory(categoryName);
-        return wordRepo.findByCategory(category, pageable).map(this::convertToResponseDTO);
+        return wordRepo.findByCategoriesContaining(category, pageable).map(this::convertToResponseDTO);
     }
 
     private Page<WordResponseDTO> getWordsByCategoryForAge(String categoryName, Pageable pageable, Integer age) {
@@ -149,8 +149,12 @@ public class WordServiceImpl implements WordService {
         responseDTO.setWordType(word.getWordType());
         responseDTO.setExpandedForm(word.getExpandedForm());
         responseDTO.setPartOfSpeech(word.getPartOfSpeech());
-        responseDTO.setCategoryId(word.getCategory() != null ? word.getCategory().getId() : null);
-        responseDTO.setCategoryName(word.getCategory() != null ? word.getCategory().getName() : null);
+        List<Category> categories = new ArrayList<>(word.getCategories());
+        Category primaryCategory = categories.isEmpty() ? null : categories.get(0);
+        responseDTO.setCategoryId(primaryCategory != null ? primaryCategory.getId() : null);
+        responseDTO.setCategoryName(primaryCategory != null ? primaryCategory.getName() : null);
+        responseDTO.setCategoryIds(categories.stream().map(Category::getId).toList());
+        responseDTO.setCategoryNames(categories.stream().map(Category::getName).toList());
         responseDTO.setMeaning(word.getMeaning());
         responseDTO.setDescription(word.getDescription());
         responseDTO.setImages(toImageUrls(word.getImages()));
@@ -161,7 +165,7 @@ public class WordServiceImpl implements WordService {
         responseDTO.setExamples(parseExamples(word.getExamplesJson()));
         responseDTO.setCreated(formatDateTime(word.getCreatedAt()));
         responseDTO.setUpdated(formatDateTime(word.getUpdatedAt()));
-        responseDTO.setDisplayOrder(word.getDisplayOrder());
+        responseDTO.setDisplayOrder(primaryCategory == null ? null : word.getCategoryDisplayOrder(primaryCategory.getId()));
 
         // related words - resolve persisted related IDs into response objects
         List<Long> relatedIds = word.getRelatedWordIds();
@@ -214,12 +218,8 @@ public class WordServiceImpl implements WordService {
             throw new ApiException("Meaning is required");
         }
 
-        if (request.getCategoryId() == null) {
-            throw new ApiException("CategoryId is required");
-        }
-
-        Category category = categoryRepo.findById(request.getCategoryId())
-                .orElseThrow(() -> new ApiException("Category not found with id: " + request.getCategoryId()));
+        List<Category> categories = resolveCategories(request);
+        Category category = categories.get(0);
 
         Word word = new Word();
         word.setWord(request.getWord());
@@ -234,11 +234,12 @@ public class WordServiceImpl implements WordService {
         if (request.getSourceAndCredits() != null) {
             word.setSourceCreditsJson(serializeSourceCredits(request.getSourceAndCredits()));
         }
-        word.setCategory(category);
-        if (request.getDisplayOrder() != null) {
-            word.setDisplayOrder(request.getDisplayOrder());
-        } else {
-            word.setDisplayOrder(deriveNextDisplayOrder(category));
+        word.setCategories(new LinkedHashSet<>(categories));
+        long displayOrder = request.getDisplayOrder() != null
+                ? request.getDisplayOrder()
+                : deriveNextDisplayOrder(category);
+        for (Category wordCategory : categories) {
+            word.setCategoryDisplayOrder(wordCategory.getId(), displayOrder);
         }
         word.setCreatedAt(LocalDateTime.now());
         word.setUpdatedAt(LocalDateTime.now());
@@ -351,10 +352,14 @@ public class WordServiceImpl implements WordService {
             word.setDescription(request.getDescription());
         }
 
-        if (request.getCategoryId() != null) {
-            Category category = categoryRepo.findById(request.getCategoryId())
-                    .orElseThrow(() -> new ApiException("Category not found with id: " + request.getCategoryId()));
-            word.setCategory(category);
+        if ((request.getCategoryIds() != null && !request.getCategoryIds().isEmpty())
+            || request.getCategoryId() != null) {
+            List<Category> categories = resolveCategories(request);
+            word.setCategories(new LinkedHashSet<>(categories));
+            for (Category category : categories) {
+                word.setCategoryDisplayOrderIfAbsent(category.getId(),
+                        word.getCategoryDisplayOrder(category.getId()));
+            }
         }
 
         // handle multiple images
@@ -391,8 +396,10 @@ public class WordServiceImpl implements WordService {
         }
 
         if (request.getDisplayOrder() != null) {
-            word.setDisplayOrder(request.getDisplayOrder());
-            log.info("📝 updateWord set displayOrder on entity: {}", word.getDisplayOrder());
+            for (Category category : word.getCategories()) {
+                word.setCategoryDisplayOrder(category.getId(), request.getDisplayOrder());
+            }
+            log.info("📝 updateWord set displayOrder for {} categories", word.getCategories().size());
         }
 
         if (request.getQuizModes() != null) {
@@ -470,7 +477,9 @@ public class WordServiceImpl implements WordService {
         }
         Word word = wordRepo.findById(id)
                 .orElseThrow(() -> new ApiException("Word not found with id: " + id));
-        word.setDisplayOrder(displayOrder);
+        for (Category category : word.getCategories()) {
+            word.setCategoryDisplayOrder(category.getId(), displayOrder);
+        }
         word.setUpdatedAt(LocalDateTime.now());
         Word updatedWord = wordRepo.save(word);
         return convertToResponseDTO(updatedWord);
@@ -480,8 +489,13 @@ public class WordServiceImpl implements WordService {
     private static final long DISPLAY_ORDER_INCREMENT = 10000L;
 
     public long deriveNextDisplayOrder(Category category) {
-        Long maxOrder = wordRepo.findMaxDisplayOrderByCategory(category);
-        if (maxOrder == null || maxOrder < DISPLAY_ORDER_INITIAL) {
+        List<Word> existingWords = wordRepo.findAllByCategoriesContaining(category);
+        if (existingWords == null) existingWords = Collections.emptyList();
+        Long maxOrder = existingWords.stream()
+            .map(word -> word.getCategoryDisplayOrder(category.getId()))
+            .max(Long::compareTo)
+            .orElse(0L);
+        if (maxOrder < DISPLAY_ORDER_INITIAL) {
             return DISPLAY_ORDER_INITIAL;
         }
         return maxOrder + DISPLAY_ORDER_INCREMENT;
@@ -504,19 +518,19 @@ public class WordServiceImpl implements WordService {
         int totalUpdated = 0;
 
         for (com.example.WordGame.modules.category.Entities.Category category : categories) {
-            List<Word> words = wordRepo.findAllByCategoryId(category.getId());
+            List<Word> words = wordRepo.findAllByCategoriesContaining(category);
             if (words == null || words.isEmpty()) continue;
 
             words.sort(Comparator
-                    .comparing((Word w) -> Optional.ofNullable(w.getDisplayOrder()).orElse(Long.MAX_VALUE))
+                    .comparing((Word w) -> w.getCategoryDisplayOrder(category.getId()))
                     .thenComparing(Word::getId));
 
             long nextOrder = DISPLAY_ORDER_INITIAL;
             List<Word> updatedWords = new ArrayList<>();
 
             for (Word word : words) {
-                if (word.getDisplayOrder() == null || !word.getDisplayOrder().equals(nextOrder)) {
-                    word.setDisplayOrder(nextOrder);
+                if (word.getCategoryDisplayOrder(category.getId()) != nextOrder) {
+                    word.setCategoryDisplayOrder(category.getId(), nextOrder);
                     word.setUpdatedAt(LocalDateTime.now());
                     updatedWords.add(word);
                 }
@@ -576,7 +590,6 @@ public class WordServiceImpl implements WordService {
         //     Word word = new Word();
         //     word.setWord(wordEntry.getWord());
         //     word.setMeaning(wordEntry.getMeaning());
-        //     word.setCategory(category);
         //     word.setCreatedAt(LocalDateTime.now());
 
         //     List<String> imgs = resolveImagesJson(wordEntry);
@@ -613,8 +626,13 @@ public class WordServiceImpl implements WordService {
         responseDTO.setWordType(word.getWordType());
         responseDTO.setExpandedForm(word.getExpandedForm());
         responseDTO.setPartOfSpeech(word.getPartOfSpeech());
-        responseDTO.setCategoryId(word.getCategory() != null ? word.getCategory().getId() : null);
-        responseDTO.setCategoryName(word.getCategory() != null ? word.getCategory().getName() : null);
+        List<Category> categories = new ArrayList<>(word.getCategories());
+        Category primaryCategory = categories.isEmpty() ? null : categories.get(0);
+        responseDTO.setCategoryId(primaryCategory != null ? primaryCategory.getId() : null);
+        responseDTO.setCategoryName(primaryCategory != null ? primaryCategory.getName() : null);
+        responseDTO.setCategoryIds(categories.stream().map(Category::getId).toList());
+        responseDTO.setCategoryNames(categories.stream().map(Category::getName).toList());
+        responseDTO.setDisplayOrder(primaryCategory == null ? null : word.getCategoryDisplayOrder(primaryCategory.getId()));
         responseDTO.setMeaning(word.getMeaning());
         List<String> imgs = word.getImages();
         responseDTO.setImages(toImageUrls(imgs));
@@ -626,7 +644,6 @@ public class WordServiceImpl implements WordService {
         responseDTO.setUpdated(formatDateTime(word.getUpdatedAt()));
         responseDTO.setDescription(word.getDescription());
         responseDTO.setSourceAndCredits(parseSourceCredits(word.getSourceCreditsJson()));
-        responseDTO.setDisplayOrder(word.getDisplayOrder());
 
         responseDTO.setQuizModes(mapQuizModes(word.getQuizModes()));
 
@@ -772,6 +789,21 @@ public class WordServiceImpl implements WordService {
             return categoryRepo.findByName(trimmedKey)
                     .orElseThrow(() -> new ApiException("Category not found: " + trimmedKey));
         }
+    }
+
+    private List<Category> resolveCategories(WordRequestDTO request) {
+        List<Long> ids = new ArrayList<>();
+        if (request.getCategoryIds() != null) ids.addAll(request.getCategoryIds());
+        if (request.getCategoryId() != null && !ids.contains(request.getCategoryId())) {
+            ids.add(0, request.getCategoryId());
+        }
+        if (ids.isEmpty()) {
+            throw new ApiException("At least one categoryId is required");
+        }
+        return ids.stream()
+                .map(id -> categoryRepo.findById(id)
+                        .orElseThrow(() -> new ApiException("Category not found with id: " + id)))
+                .toList();
     }
 
     // private List<String> resolveImagesJson(BulkWordImportDTO.WordEntry wordEntry) {

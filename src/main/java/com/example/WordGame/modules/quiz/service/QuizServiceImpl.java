@@ -426,8 +426,7 @@ public class QuizServiceImpl implements QuizService {
 
         // Distractors come from the same category, nearest to this word's
         // display order, so similarly positioned words remain plausible.
-        List<Word> categoryWords = wordRepository
-                .findAllByCategoryIdOrderByDisplayOrderAscIdAsc(word.getCategory().getId());
+        List<Word> categoryWords = wordsInCategoryOrder(word);
         int targetIndex = findWordIndex(categoryWords, word.getId());
         for (int distance = 1; options.size() < 4 && distance < categoryWords.size(); distance++) {
             addOptionIfValid(options, categoryWords, targetIndex - distance, word);
@@ -457,6 +456,17 @@ public class QuizServiceImpl implements QuizService {
             }
         }
         return -1;
+    }
+
+    private List<Word> wordsInCategoryOrder(Word word) {
+        Long categoryId = word.getCategories().stream()
+            .findFirst()
+            .map(category -> category.getId())
+            .orElseThrow(() -> new ApiException("Word has no category"));
+        return wordRepository.findAllByCategoryId(categoryId).stream()
+                .sorted(Comparator.comparing((Word candidate) -> candidate.getCategoryDisplayOrder(categoryId))
+                        .thenComparing(Word::getId))
+                .toList();
     }
 
     private void addOptionIfValid(List<String> options, List<Word> categoryWords, int index, Word answerWord) {
@@ -493,8 +503,7 @@ public class QuizServiceImpl implements QuizService {
     }
 
     private QuizQuestionResponseDTO createImageQuestionResponse(Word word) {
-        List<Word> categoryWords = wordRepository
-                .findAllByCategoryIdOrderByDisplayOrderAscIdAsc(word.getCategory().getId());
+        List<Word> categoryWords = wordsInCategoryOrder(word);
         int targetIndex = findWordIndex(categoryWords, word.getId());
         List<String> options = new ArrayList<>();
         options.add(word.getWord());

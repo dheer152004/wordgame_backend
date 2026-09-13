@@ -51,7 +51,7 @@ public class Category {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt = LocalDateTime.now();
 
-    @OneToMany(mappedBy = "category", cascade = CascadeType.ALL)
+    @ManyToMany(mappedBy = "categories")
     private List<Word> words = new ArrayList<>();
 
     public Category(String name) {
