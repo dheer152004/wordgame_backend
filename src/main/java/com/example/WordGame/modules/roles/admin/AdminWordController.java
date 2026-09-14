@@ -99,16 +99,27 @@ public class AdminWordController {
     }
 
     @PatchMapping(path = "/{id}/display-order", consumes = "application/json")
-    public ResponseEntity<WordResponseDTO> updateDisplayOrder(
+        public ResponseEntity<Map<String, Object>> updateDisplayOrder(
             @PathVariable Long id,
-            @RequestBody WordRequestDTO request) {
-        if (request.getCategories() == null || request.getCategories().isEmpty()
-                || request.getCategories().get(0).getDisplayOrder() == null) {
-            return ResponseEntity.badRequest().build();
+            @RequestBody DisplayOrderUpdateRequest request) {
+        if (request.getCategoryId() == null || request.getDisplayOrder() == null) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "success", false,
+                "message", "categoryId and displayOrder are required"));
         }
         WordResponseDTO word = wordService.updateWordDisplayOrder(
-                id, request.getCategories().get(0).getDisplayOrder());
-        return ResponseEntity.ok(word);
+                id, request.getCategoryId(), request.getDisplayOrder());
+
+        List<Map<String, Object>> categories = word.getCategories().stream()
+            .map(category -> Map.<String, Object>of(
+                "categoryId", category.getCategoryId(),
+                "displayOrder", category.getDisplayOrder()))
+            .toList();
+
+        return ResponseEntity.ok(Map.of(
+            "success", true,
+            "message", "Display order updated successfully",
+            "categories", categories));
     }
 
     @DeleteMapping("/{id}")

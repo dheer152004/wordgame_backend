@@ -362,21 +362,26 @@ public class WordServiceImpl implements WordService {
                             .orElseThrow(() -> new ApiException("Category not found with id: " + assignment.getCategoryId())))
                     .toList();
             word.setCategories(new LinkedHashSet<>(categories));
+            Set<Long> categoryIds = categories.stream()
+                    .map(Category::getId)
+                    .collect(Collectors.toSet());
+            word.getCategoryDisplayOrders().keySet().retainAll(categoryIds);
             for (int index = 0; index < categories.size(); index++) {
                 Category category = categories.get(index);
                 WordCategoryDTO assignment = categoryAssignments.get(index);
-                if (assignment.getDisplayOrder() != null) {
+                if (assignment.getDisplayOrder() != null && assignment.getDisplayOrder() >= 0) {
                     word.setCategoryDisplayOrder(category.getId(), assignment.getDisplayOrder());
-                } else {
+                } else if (assignment.getDisplayOrder() == null) {
                     word.setCategoryDisplayOrderIfAbsent(category.getId(),
                             deriveNextDisplayOrder(category));
+                } else {
+                    throw new ApiException("displayOrder must be zero or greater");
                 }
             }
         }
 
         // handle multiple images
         if ((request.getImages() != null && !request.getImages().isEmpty())
-            || (request.getImages() != null && !request.getImages().isEmpty())
             || (request.getWordImages() != null && !request.getWordImages().isEmpty())) {
             // delete old images if any
             List<String> oldImages = word.getImages();
@@ -488,6 +493,35 @@ public class WordServiceImpl implements WordService {
         word.setUpdatedAt(LocalDateTime.now());
         Word updatedWord = wordRepo.save(word);
         return convertToResponseDTO(updatedWord);
+    }
+
+    @Override
+    @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = "categories", allEntries = true),
+            @CacheEvict(value = "words", allEntries = true),
+            @CacheEvict(value = "wordDetails", key = "#id"),
+            @CacheEvict(value = "randomWords", allEntries = true)
+    })
+    public WordResponseDTO updateWordDisplayOrder(Long id, Long categoryId, Long displayOrder) {
+        if (categoryId == null) {
+            throw new ApiException("categoryId is required");
+        }
+        if (displayOrder == null || displayOrder < 0) {
+            throw new ApiException("displayOrder must be zero or greater");
+        }
+
+        Word word = wordRepo.findById(id)
+                .orElseThrow(() -> new ApiException("Word not found with id: " + id));
+        boolean belongsToCategory = word.getCategories().stream()
+                .anyMatch(category -> categoryId.equals(category.getId()));
+        if (!belongsToCategory) {
+            throw new ApiException("Word does not belong to category: " + categoryId);
+        }
+
+        word.setCategoryDisplayOrder(categoryId, displayOrder);
+        word.setUpdatedAt(LocalDateTime.now());
+        return convertToResponseDTO(wordRepo.save(word));
     }
 
     private static final long DISPLAY_ORDER_INITIAL = 10000L;
