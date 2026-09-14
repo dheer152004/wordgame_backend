@@ -16,13 +16,10 @@ public class WordRequestDTO {
     private PartOfSpeech partOfSpeech;
     private String meaning;
     private String description;
-    private Long categoryId;
-    private List<Long> categoryIds;
-    private Long displayOrder;
+    private List<WordCategoryDTO> categories;
     private List<MultipartFile> wordImages;
     private List<MultipartFile> wordVideos;
     private List<MultipartFile> wordAudios;
-    private List<String> imageUrls;
     private List<ImageUrlDTO> images;
     private List<VideoUrlDTO> videos;
     private List<AudioUrlDTO> audios;

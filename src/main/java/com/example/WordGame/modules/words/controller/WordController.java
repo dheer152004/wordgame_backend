@@ -31,7 +31,7 @@ public class WordController {
             @RequestParam(defaultValue = "10") int size,
             @AuthenticationPrincipal UserDetails userDetails) {
 
-        Pageable pageable = PageRequest.of(page, size, org.springframework.data.domain.Sort.by("displayOrder").ascending());
+        Pageable pageable = PageRequest.of(page, size);
         String userEmail = userDetails != null ? userDetails.getUsername() : null;
         Page<WordResponseDTO> wordsPage = wordService.getWordsByCategory(categoryName, pageable, userEmail);
 

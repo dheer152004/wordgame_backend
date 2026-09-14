@@ -21,12 +21,8 @@ public class WordDetailResponseDTO {
     private WordType wordType;
     private String expandedForm;
     private PartOfSpeech partOfSpeech;
-    private Long categoryId;
-    private String categoryName;
-    private List<Long> categoryIds;
-    private List<String> categoryNames;
+    private List<WordCategoryDTO> categories;
     private String meaning;
-    private Long displayOrder;
     private String description;
     @com.fasterxml.jackson.annotation.JsonProperty("source&credits")
     private com.example.WordGame.modules.words.DTO.SourceCreditsDTO sourceAndCredits;

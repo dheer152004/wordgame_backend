@@ -4,6 +4,7 @@ import com.example.WordGame.Service.ImageStorageService;
 import com.example.WordGame.modules.category.Entities.Category;
 import com.example.WordGame.modules.category.repository.CategoryRepo;
 import com.example.WordGame.modules.words.DTO.WordDetailResponseDTO;
+import com.example.WordGame.modules.words.DTO.WordCategoryDTO;
 import com.example.WordGame.modules.words.DTO.WordRequestDTO;
 import com.example.WordGame.modules.words.DTO.WordResponseDTO;
 import com.example.WordGame.modules.words.Entities.Word;
@@ -21,6 +22,7 @@ import java.lang.reflect.Proxy;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.LinkedHashSet;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -37,16 +39,16 @@ class WordServiceImplTest {
         WordRequestDTO request = new WordRequestDTO();
         request.setWord("serendipity");
         request.setMeaning("A pleasant surprise");
-        request.setCategoryId(1L);
+        request.setCategories(List.of(new WordCategoryDTO(1L, null, null)));
         request.setQuizModes(List.of("IMAGE", "TEXT"));
 
         Word savedWord = new Word();
         savedWord.setId(1L);
         savedWord.setWord("serendipity");
         savedWord.setMeaning("A pleasant surprise");
-        savedWord.setCategory(category);
+        savedWord.setCategories(new LinkedHashSet<>(Set.of(category)));
         savedWord.setQuizModes(Set.of(QuizMode.IMAGE, QuizMode.TEXT));
-        savedWord.setDisplayOrder(10000L);
+        savedWord.setCategoryDisplayOrder(1L, 10000L);
 
         WordRepo wordRepo = (WordRepo) Proxy.newProxyInstance(
                 WordRepo.class.getClassLoader(),
@@ -58,8 +60,8 @@ class WordServiceImplTest {
                     if ("findById".equals(method.getName())) {
                         return Optional.of(savedWord);
                     }
-                    if ("findMaxDisplayOrderByCategory".equals(method.getName())) {
-                        return 0L;
+                    if ("findAllByCategoriesContaining".equals(method.getName())) {
+                        return List.of();
                     }
                     if (method.getReturnType().equals(Optional.class)) {
                         return Optional.empty();
@@ -103,8 +105,10 @@ class WordServiceImplTest {
 
         assertNotNull(response);
         assertEquals(List.of("IMAGE", "TEXT"), response.getQuizModes());
-        assertEquals(10000L, response.getDisplayOrder());
-        assertEquals("TOTOTP", response.getCategoryName());
+        assertEquals(1, response.getCategories().size());
+        assertEquals(1L, response.getCategories().get(0).getCategoryId());
+        assertEquals("TOTOTP", response.getCategories().get(0).getCategoryName());
+        assertEquals(10000L, response.getCategories().get(0).getDisplayOrder());
     }
 
     @Test
@@ -117,9 +121,9 @@ class WordServiceImplTest {
         word.setId(1L);
         word.setWord("serendipity");
         word.setMeaning("A pleasant surprise");
-        word.setCategory(category);
+        word.setCategories(new LinkedHashSet<>(Set.of(category)));
         word.setQuizModes(Set.of(QuizMode.IMAGE, QuizMode.TEXT));
-        word.setDisplayOrder(10000L);
+        word.setCategoryDisplayOrder(1L, 10000L);
         word.setCreatedAt(LocalDateTime.now());
         word.setUpdatedAt(LocalDateTime.now());
 
@@ -168,8 +172,8 @@ class WordServiceImplTest {
         WordDetailResponseDTO response = wordService.getWordDetail(1L);
 
         assertNotNull(response);
-        assertEquals("TOTOTP", response.getCategoryName());
-        assertEquals(1L, response.getCategoryId());
+        assertEquals("TOTOTP", response.getCategories().get(0).getCategoryName());
+        assertEquals(1L, response.getCategories().get(0).getCategoryId());
     }
 
     @Test
@@ -182,14 +186,14 @@ class WordServiceImplTest {
         word.setId(1L);
         word.setWord("serendipity");
         word.setMeaning("A pleasant surprise");
-        word.setCategory(category);
-        word.setDisplayOrder(10000L);
+        word.setCategories(new LinkedHashSet<>(Set.of(category)));
+        word.setCategoryDisplayOrder(1L, 10000L);
 
         WordRepo wordRepo = (WordRepo) Proxy.newProxyInstance(
                 WordRepo.class.getClassLoader(),
                 new Class<?>[]{WordRepo.class},
                 (proxy, method, args) -> {
-                    if ("findByCategory".equals(method.getName())) {
+                    if ("findByCategoriesContaining".equals(method.getName())) {
                         return new PageImpl<>(List.of(word), PageRequest.of(0, 10), 1);
                     }
                     if (method.getReturnType().equals(Optional.class)) {
@@ -240,6 +244,6 @@ class WordServiceImplTest {
 
         assertNotNull(response);
         assertEquals(1L, response.getTotalElements());
-        assertEquals("TOTOTP", response.getContent().get(0).getCategoryName());
+        assertEquals("TOTOTP", response.getContent().get(0).getCategories().get(0).getCategoryName());
     }
 }

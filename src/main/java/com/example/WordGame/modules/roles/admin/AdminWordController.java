@@ -58,7 +58,7 @@ public class AdminWordController {
         WordResponseDTO word = wordService.getWordById(id);
         Map<String, Object> response = new HashMap<>();
         response.put("id", id);
-        response.put("displayOrder", word.getDisplayOrder());
+        response.put("categories", word.getCategories());
         return ResponseEntity.ok(response);
     }
     
@@ -102,7 +102,12 @@ public class AdminWordController {
     public ResponseEntity<WordResponseDTO> updateDisplayOrder(
             @PathVariable Long id,
             @RequestBody WordRequestDTO request) {
-        WordResponseDTO word = wordService.updateWordDisplayOrder(id, request.getDisplayOrder());
+        if (request.getCategories() == null || request.getCategories().isEmpty()
+                || request.getCategories().get(0).getDisplayOrder() == null) {
+            return ResponseEntity.badRequest().build();
+        }
+        WordResponseDTO word = wordService.updateWordDisplayOrder(
+                id, request.getCategories().get(0).getDisplayOrder());
         return ResponseEntity.ok(word);
     }
 

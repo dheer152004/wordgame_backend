@@ -5,7 +5,14 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 public enum WordType {
     ACRONYM,
     NORMAL_WORD,
-    ABBRIVATION;
+    ABBREVIATION,
+    CONTRACTION,
+    SHORTENED_WORD,
+    BLEND,
+    COMPOUND_WORD,
+    IDIOM,
+    PHRASAL_VERB,
+    PROVERB;
 
     @JsonCreator
     public static WordType fromValue(String value) {

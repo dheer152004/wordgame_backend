@@ -24,12 +24,8 @@ public class WordResponseDTO {
     private WordType wordType;
     private String expandedForm;
     private PartOfSpeech partOfSpeech;
-    private Long categoryId;
-    private String categoryName;
-    private List<Long> categoryIds;
-    private List<String> categoryNames;
+    private List<WordCategoryDTO> categories;
     private String meaning;
-    private Long displayOrder;
     private List<ImageUrlDTO> images;
     private List<VideoUrlDTO> videos;
     private List<AudioUrlDTO> audios;

@@ -18,13 +18,20 @@ import java.util.Optional;
 @Repository
 public interface WordRepo extends JpaRepository<Word, Long> {
 
-    Page<Word> findByCategoriesContaining(Category category, Pageable pageable);
+        @Query("SELECT w FROM Word w JOIN w.categories category "
+            + "JOIN w.categoryDisplayOrders categoryOrder "
+            + "WHERE category = :category AND KEY(categoryOrder) = category.id "
+            + "ORDER BY VALUE(categoryOrder) ASC, w.id ASC")
+        Page<Word> findByCategoriesContaining(@Param("category") Category category, Pageable pageable);
 
-        @Query("SELECT w FROM Word w JOIN w.categories category WHERE category = :category "
+        @Query("SELECT w FROM Word w JOIN w.categories category "
+            + "JOIN w.categoryDisplayOrders categoryOrder "
+            + "WHERE category = :category AND KEY(categoryOrder) = category.id "
             + "AND (category.ageRating IS NULL OR category.ageRating = :allRating "
             + "OR (:age IS NOT NULL AND category.ageRating = :teenRating AND :age >= 13) "
             + "OR (:age IS NOT NULL AND category.ageRating = :sixteenRating AND :age >= 16) "
-            + "OR (:age IS NOT NULL AND category.ageRating = :adultRating AND :age >= 18))")
+            + "OR (:age IS NOT NULL AND category.ageRating = :adultRating AND :age >= 18)) "
+            + "ORDER BY VALUE(categoryOrder) ASC, w.id ASC")
         Page<Word> findByCategoryAndAge(@Param("category") Category category,
                        @Param("age") Integer age,
                        @Param("allRating") AgeRating allRating,

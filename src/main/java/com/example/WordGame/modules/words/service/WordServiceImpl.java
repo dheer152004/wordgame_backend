@@ -150,11 +150,10 @@ public class WordServiceImpl implements WordService {
         responseDTO.setExpandedForm(word.getExpandedForm());
         responseDTO.setPartOfSpeech(word.getPartOfSpeech());
         List<Category> categories = new ArrayList<>(word.getCategories());
-        Category primaryCategory = categories.isEmpty() ? null : categories.get(0);
-        responseDTO.setCategoryId(primaryCategory != null ? primaryCategory.getId() : null);
-        responseDTO.setCategoryName(primaryCategory != null ? primaryCategory.getName() : null);
-        responseDTO.setCategoryIds(categories.stream().map(Category::getId).toList());
-        responseDTO.setCategoryNames(categories.stream().map(Category::getName).toList());
+        responseDTO.setCategories(categories.stream()
+            .map(category -> new WordCategoryDTO(category.getId(), category.getName(),
+                word.getCategoryDisplayOrder(category.getId())))
+            .toList());
         responseDTO.setMeaning(word.getMeaning());
         responseDTO.setDescription(word.getDescription());
         responseDTO.setImages(toImageUrls(word.getImages()));
@@ -165,7 +164,6 @@ public class WordServiceImpl implements WordService {
         responseDTO.setExamples(parseExamples(word.getExamplesJson()));
         responseDTO.setCreated(formatDateTime(word.getCreatedAt()));
         responseDTO.setUpdated(formatDateTime(word.getUpdatedAt()));
-        responseDTO.setDisplayOrder(primaryCategory == null ? null : word.getCategoryDisplayOrder(primaryCategory.getId()));
 
         // related words - resolve persisted related IDs into response objects
         List<Long> relatedIds = word.getRelatedWordIds();
@@ -218,8 +216,11 @@ public class WordServiceImpl implements WordService {
             throw new ApiException("Meaning is required");
         }
 
-        List<Category> categories = resolveCategories(request);
-        Category category = categories.get(0);
+        List<WordCategoryDTO> categoryAssignments = resolveCategoryAssignments(request);
+        List<Category> categories = categoryAssignments.stream()
+            .map(assignment -> categoryRepo.findById(assignment.getCategoryId())
+                .orElseThrow(() -> new ApiException("Category not found with id: " + assignment.getCategoryId())))
+            .toList();
 
         Word word = new Word();
         word.setWord(request.getWord());
@@ -235,10 +236,12 @@ public class WordServiceImpl implements WordService {
             word.setSourceCreditsJson(serializeSourceCredits(request.getSourceAndCredits()));
         }
         word.setCategories(new LinkedHashSet<>(categories));
-        long displayOrder = request.getDisplayOrder() != null
-                ? request.getDisplayOrder()
-                : deriveNextDisplayOrder(category);
-        for (Category wordCategory : categories) {
+        for (int index = 0; index < categories.size(); index++) {
+            Category wordCategory = categories.get(index);
+            WordCategoryDTO assignment = categoryAssignments.get(index);
+            long displayOrder = assignment.getDisplayOrder() != null
+                ? assignment.getDisplayOrder()
+                : deriveNextDisplayOrder(wordCategory);
             word.setCategoryDisplayOrder(wordCategory.getId(), displayOrder);
         }
         word.setCreatedAt(LocalDateTime.now());
@@ -352,19 +355,28 @@ public class WordServiceImpl implements WordService {
             word.setDescription(request.getDescription());
         }
 
-        if ((request.getCategoryIds() != null && !request.getCategoryIds().isEmpty())
-            || request.getCategoryId() != null) {
-            List<Category> categories = resolveCategories(request);
+        if (request.getCategories() != null && !request.getCategories().isEmpty()) {
+            List<WordCategoryDTO> categoryAssignments = resolveCategoryAssignments(request);
+            List<Category> categories = categoryAssignments.stream()
+                    .map(assignment -> categoryRepo.findById(assignment.getCategoryId())
+                            .orElseThrow(() -> new ApiException("Category not found with id: " + assignment.getCategoryId())))
+                    .toList();
             word.setCategories(new LinkedHashSet<>(categories));
-            for (Category category : categories) {
-                word.setCategoryDisplayOrderIfAbsent(category.getId(),
-                        word.getCategoryDisplayOrder(category.getId()));
+            for (int index = 0; index < categories.size(); index++) {
+                Category category = categories.get(index);
+                WordCategoryDTO assignment = categoryAssignments.get(index);
+                if (assignment.getDisplayOrder() != null) {
+                    word.setCategoryDisplayOrder(category.getId(), assignment.getDisplayOrder());
+                } else {
+                    word.setCategoryDisplayOrderIfAbsent(category.getId(),
+                            deriveNextDisplayOrder(category));
+                }
             }
         }
 
         // handle multiple images
         if ((request.getImages() != null && !request.getImages().isEmpty())
-            || (request.getImageUrls() != null && !request.getImageUrls().isEmpty())
+            || (request.getImages() != null && !request.getImages().isEmpty())
             || (request.getWordImages() != null && !request.getWordImages().isEmpty())) {
             // delete old images if any
             List<String> oldImages = word.getImages();
@@ -393,13 +405,6 @@ public class WordServiceImpl implements WordService {
 
         if (request.getExamples() != null) {
             word.setExamplesJson(serializeExamples(request.getExamples()));
-        }
-
-        if (request.getDisplayOrder() != null) {
-            for (Category category : word.getCategories()) {
-                word.setCategoryDisplayOrder(category.getId(), request.getDisplayOrder());
-            }
-            log.info("📝 updateWord set displayOrder for {} categories", word.getCategories().size());
         }
 
         if (request.getQuizModes() != null) {
@@ -627,12 +632,10 @@ public class WordServiceImpl implements WordService {
         responseDTO.setExpandedForm(word.getExpandedForm());
         responseDTO.setPartOfSpeech(word.getPartOfSpeech());
         List<Category> categories = new ArrayList<>(word.getCategories());
-        Category primaryCategory = categories.isEmpty() ? null : categories.get(0);
-        responseDTO.setCategoryId(primaryCategory != null ? primaryCategory.getId() : null);
-        responseDTO.setCategoryName(primaryCategory != null ? primaryCategory.getName() : null);
-        responseDTO.setCategoryIds(categories.stream().map(Category::getId).toList());
-        responseDTO.setCategoryNames(categories.stream().map(Category::getName).toList());
-        responseDTO.setDisplayOrder(primaryCategory == null ? null : word.getCategoryDisplayOrder(primaryCategory.getId()));
+        responseDTO.setCategories(categories.stream()
+            .map(category -> new WordCategoryDTO(category.getId(), category.getName(),
+                word.getCategoryDisplayOrder(category.getId())))
+            .toList());
         responseDTO.setMeaning(word.getMeaning());
         List<String> imgs = word.getImages();
         responseDTO.setImages(toImageUrls(imgs));
@@ -688,10 +691,6 @@ public class WordServiceImpl implements WordService {
                     .filter(Objects::nonNull)
                     .forEach(urls::add);
         }
-        if (request.getImageUrls() != null && !request.getImageUrls().isEmpty()) {
-            urls.addAll(request.getImageUrls());
-        }
-
         if (request.getWordImages() != null && !request.getWordImages().isEmpty()) {
             int mediaNumber = 1;
             for (org.springframework.web.multipart.MultipartFile mf : request.getWordImages()) {
@@ -791,19 +790,14 @@ public class WordServiceImpl implements WordService {
         }
     }
 
-    private List<Category> resolveCategories(WordRequestDTO request) {
-        List<Long> ids = new ArrayList<>();
-        if (request.getCategoryIds() != null) ids.addAll(request.getCategoryIds());
-        if (request.getCategoryId() != null && !ids.contains(request.getCategoryId())) {
-            ids.add(0, request.getCategoryId());
+    private List<WordCategoryDTO> resolveCategoryAssignments(WordRequestDTO request) {
+        if (request.getCategories() != null && !request.getCategories().isEmpty()) {
+            List<WordCategoryDTO> assignments = request.getCategories().stream()
+                    .filter(assignment -> assignment != null && assignment.getCategoryId() != null)
+                    .toList();
+            if (!assignments.isEmpty()) return assignments;
         }
-        if (ids.isEmpty()) {
-            throw new ApiException("At least one categoryId is required");
-        }
-        return ids.stream()
-                .map(id -> categoryRepo.findById(id)
-                        .orElseThrow(() -> new ApiException("Category not found with id: " + id)))
-                .toList();
+        throw new ApiException("At least one category assignment is required");
     }
 
     // private List<String> resolveImagesJson(BulkWordImportDTO.WordEntry wordEntry) {
