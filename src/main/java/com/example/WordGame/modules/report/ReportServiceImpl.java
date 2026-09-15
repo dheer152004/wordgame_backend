@@ -92,10 +92,6 @@ public class ReportServiceImpl implements ReportService {
     private List<String> resolveScreenshotUrls(ReportRequestDTO request) {
         List<String> urls = new ArrayList<>();
 
-        if (request.getScreenshotUrls() != null && !request.getScreenshotUrls().isEmpty()) {
-            urls.addAll(request.getScreenshotUrls());
-        }
-
         if (request.getScreenshotFiles() != null && !request.getScreenshotFiles().isEmpty()) {
             for (MultipartFile file : request.getScreenshotFiles()) {
                 if (file == null || file.isEmpty()) {

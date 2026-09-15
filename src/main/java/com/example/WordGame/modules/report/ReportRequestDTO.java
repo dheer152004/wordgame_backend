@@ -9,6 +9,5 @@ import java.util.List;
 public class ReportRequestDTO {
     private String reason;
     private String description;
-    private List<String> screenshotUrls;
     private List<MultipartFile> screenshotFiles;
 }

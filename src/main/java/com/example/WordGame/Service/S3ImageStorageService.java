@@ -17,6 +17,7 @@ import software.amazon.awssdk.services.s3.S3Configuration;
 
 import java.io.IOException;
 import java.net.URI;
+import java.util.Locale;
 import java.util.UUID;
 
 @Slf4j
@@ -53,7 +54,7 @@ public class S3ImageStorageService implements ImageStorageService {
             return null;
         }
 
-        String contentType = file.getContentType();
+        String contentType = resolveContentType(file, mediaType);
         if (contentType == null || !contentType.startsWith(mediaType)) {
             throw new IOException("Only " + mediaType + " files are allowed. Found: " + contentType);
         }
@@ -104,6 +105,33 @@ public class S3ImageStorageService implements ImageStorageService {
         } catch (S3Exception e) {
             log.error("Failed to delete image from S3: {}", e.getMessage(), e);
         }
+    }
+
+    private String resolveContentType(MultipartFile file, String mediaType) {
+        String contentType = file.getContentType();
+        if (contentType != null && !contentType.equalsIgnoreCase("application/octet-stream")) {
+            return contentType;
+        }
+
+        if (!"image/".equals(mediaType)) {
+            return contentType;
+        }
+
+        String filename = file.getOriginalFilename();
+        if (filename == null) {
+            return contentType;
+        }
+
+        String extension = getFileExtension(filename).toLowerCase(Locale.ROOT);
+        return switch (extension) {
+            case ".jpg", ".jpeg" -> "image/jpeg";
+            case ".png" -> "image/png";
+            case ".gif" -> "image/gif";
+            case ".webp" -> "image/webp";
+            case ".bmp" -> "image/bmp";
+            case ".svg" -> "image/svg+xml";
+            default -> contentType;
+        };
     }
 
     private void validateConfiguration(S3StorageProperties props) {
