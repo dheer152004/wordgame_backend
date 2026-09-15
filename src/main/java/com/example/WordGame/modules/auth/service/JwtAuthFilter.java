@@ -59,6 +59,10 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                 response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Missing or empty Bearer token");
                 return;
             }
+            if (!authUtil.isAccessToken(token)) {
+                response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Refresh token cannot authenticate API requests");
+                return;
+            }
             // Check blacklist
             TokenBlacklistService tokenBlacklistService = getBean(TokenBlacklistService.class, request);
             if (tokenBlacklistService != null && tokenBlacklistService.isBlacklisted(token)) {

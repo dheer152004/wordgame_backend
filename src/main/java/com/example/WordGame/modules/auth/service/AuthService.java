@@ -62,6 +62,7 @@ public class AuthService {
 
         User user = (User) authentication.getPrincipal();
         String token = authUtil.generateToken(user);
+        String refreshToken = authUtil.generateRefreshToken(user);
 
         // Get user from authenticated principal (handles login-by-email)
         User userInDB = userRepository.findByUsername(user.getUsername())
@@ -81,6 +82,7 @@ public class AuthService {
 
         return LoginResponseDTO.builder()
                 .token(token)
+            .refreshToken(refreshToken)
                 .id(user.getId())
                 .username(user.getUsername())
                 .email(user.getEmail())
@@ -101,6 +103,31 @@ public class AuthService {
             throw new ApiException("User does not have required role: " + requiredRole.name());
         }
         return resp;
+    }
+
+    public LoginResponseDTO refreshAccessToken(String refreshToken) {
+        if (refreshToken == null || refreshToken.isBlank() || !authUtil.isRefreshToken(refreshToken)) {
+            throw new ApiException("Invalid refresh token");
+        }
+
+        String username = authUtil.getUsernameFromToken(refreshToken);
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new ApiException("User not found"));
+        if (!Boolean.TRUE.equals(user.getIsActive())) {
+            throw new ApiException("User account is inactive");
+        }
+
+        return LoginResponseDTO.builder()
+                .token(authUtil.generateToken(user))
+                .refreshToken(authUtil.generateRefreshToken(user))
+                .id(user.getId())
+                .username(user.getUsername())
+                .email(user.getEmail())
+                .displayName(user.getDisplayName())
+                .roles(user.getRoles() == null ? java.util.List.of() : user.getRoles().stream().map(Enum::name).toList())
+                .provider(user.getProvider() == null ? "email" : user.getProvider().name().toLowerCase())
+                .emailVerified(Boolean.TRUE.equals(user.getEmailVerified()))
+                .build();
     }
 
     public LoginResponseDTO register(RegisterRequest registerRequest) {
@@ -268,9 +295,11 @@ public class AuthService {
         }
 
         String jwt = authUtil.generateToken(user);
+        String refreshToken = authUtil.generateRefreshToken(user);
 
         return LoginResponseDTO.builder()
                 .token(jwt)
+            .refreshToken(refreshToken)
                 .id(user.getId())
                 .username(user.getUsername())
                 .email(user.getEmail())
@@ -432,7 +461,25 @@ public class AuthService {
             throw new ApiException("Email is required");
         }
 
-        User user = userRepository.findByEmail(email.trim()).orElseThrow(() -> new ApiException("No account found with that email"));
+        String normalizedEmail = email.trim();
+        User user = userRepository.findByEmail(normalizedEmail).orElse(null);
+        if (user == null) {
+            PendingRegistration pending = pendingRegistrationRepository.findByEmailIgnoreCase(normalizedEmail)
+                .orElseThrow(() -> new ApiException("No account found with that email"));
+
+            String token = UUID.randomUUID().toString();
+            pending.setVerificationToken(token);
+            pending.setVerificationExpiresAt(LocalDateTime.now().plusDays(1));
+            pendingRegistrationRepository.save(pending);
+
+            User pendingUser = new User();
+            pendingUser.setUsername(pending.getUsername());
+            pendingUser.setEmail(pending.getEmail());
+            emailService.sendEmailVerification(pendingUser, verificationUrlTemplate + token);
+
+            return java.util.Map.of("success", true, "message", "Verification email sent successfully");
+        }
+
         if (Boolean.TRUE.equals(user.getEmailVerified())) {
             return java.util.Map.of("success", true, "message", "Email is already verified");
         }

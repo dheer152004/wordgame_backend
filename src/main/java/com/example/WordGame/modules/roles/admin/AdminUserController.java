@@ -141,4 +141,30 @@ public class AdminUserController {
                 "total", registrations.size(),
                 "registrations", registrations));
     }
+
+            @DeleteMapping("/pending-registrations/{id}")
+            @PreAuthorize("hasRole('ADMIN')")
+            public ResponseEntity<Map<String, Object>> deletePendingRegistration(@PathVariable Long id) {
+            PendingRegistration registration = pendingRegistrationRepository.findById(id)
+                .orElse(null);
+
+            if (registration == null) {
+                return ResponseEntity.status(404).body(Map.of(
+                    "success", false,
+                    "message", "Pending registration not found"));
+            }
+
+            if (registration.getVerificationExpiresAt() == null
+                || !registration.getVerificationExpiresAt().isAfter(LocalDateTime.now())) {
+                return ResponseEntity.status(410).body(Map.of(
+                    "success", false,
+                    "message", "Pending registration has already expired"));
+            }
+
+            pendingRegistrationRepository.delete(registration);
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "Pending registration deleted successfully",
+                "id", id));
+            }
 }

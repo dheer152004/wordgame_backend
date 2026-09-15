@@ -15,5 +15,7 @@ public interface PendingRegistrationRepository extends JpaRepository<PendingRegi
 
     Optional<PendingRegistration> findByVerificationToken(String verificationToken);
 
+    Optional<PendingRegistration> findByEmailIgnoreCase(String email);
+
     List<PendingRegistration> findAllByVerificationExpiresAtAfterOrderByIdAsc(LocalDateTime now);
 }
