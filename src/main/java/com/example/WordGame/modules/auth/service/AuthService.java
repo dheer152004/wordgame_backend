@@ -475,7 +475,9 @@ public class AuthService {
             User pendingUser = new User();
             pendingUser.setUsername(pending.getUsername());
             pendingUser.setEmail(pending.getEmail());
-            emailService.sendEmailVerification(pendingUser, verificationUrlTemplate + token);
+            if (!emailService.sendEmailVerificationSynchronously(pendingUser, verificationUrlTemplate + token)) {
+                throw new ApiException("Verification email delivery failed. Check SES configuration and logs.");
+            }
 
             return java.util.Map.of("success", true, "message", "Verification email sent successfully");
         }
@@ -484,7 +486,13 @@ public class AuthService {
             return java.util.Map.of("success", true, "message", "Email is already verified");
         }
 
-        maybeSendEmailVerification(user);
+        String token = UUID.randomUUID().toString();
+        user.setEmailVerificationToken(token);
+        user.setEmailVerificationExpiresAt(LocalDateTime.now().plusDays(1));
+        userRepository.save(user);
+        if (!emailService.sendEmailVerificationSynchronously(user, verificationUrlTemplate + token)) {
+            throw new ApiException("Verification email delivery failed. Check SES configuration and logs.");
+        }
         return java.util.Map.of("success", true, "message", "Verification email sent successfully");
     }
 

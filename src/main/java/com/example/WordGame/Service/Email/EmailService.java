@@ -42,6 +42,22 @@ public class EmailService {
         }
     }
 
+    public boolean sendHtmlEmailSynchronously(String to, String subject, String htmlBody) {
+        if (to == null || to.isBlank()) {
+            logger.warn("Email recipient is empty");
+            return false;
+        }
+
+        try {
+            emailSender.send(to, subject, htmlBody, from);
+            logger.info("Email successfully sent to {} with subject '{}'", to, subject);
+            return true;
+        } catch (RuntimeException ex) {
+            logger.error("Synchronous email delivery failed to {} with subject '{}'", to, subject, ex);
+            return false;
+        }
+    }
+
     
 
     public void sendWelcomeEmail(User user) {
@@ -71,6 +87,16 @@ public class EmailService {
                 user.getUsername() != null ? user.getUsername() : "player",
                 verificationUrl);
         sendHtmlEmail(user.getEmail(), "Verify your WordGame email", body);
+    }
+
+    public boolean sendEmailVerificationSynchronously(User user, String verificationUrl) {
+        if (user == null || user.getEmail() == null || verificationUrl == null || verificationUrl.isBlank()) {
+            return false;
+        }
+        String body = String.format(
+                "<p>Hi <h4> %s </h4>,</p> \n<p>Thanks for signing up with WordGame.</p> \n<p>Please confirm your email address by clicking the link below:</p>\n<p><a href=\"%s\">Verify my email</a></p>\n<p>If you did not create this account, you can ignore this email.</p>",
+                user.getUsername() != null ? user.getUsername() : "player", verificationUrl);
+        return sendHtmlEmailSynchronously(user.getEmail(), "Verify your WordGame email", body);
     }
 
 

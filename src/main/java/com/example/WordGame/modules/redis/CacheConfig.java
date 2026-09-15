@@ -91,6 +91,8 @@ public class CacheConfig {
                         .entryTtl(Duration.ofMinutes(5))
                         .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(new GenericJackson2JsonRedisSerializer())));
 
+        cacheConfigurations.put("savedWordsCount", defaultConfig);
+
         return RedisCacheManager.builder(connectionFactory)
                 .cacheDefaults(defaultConfig)
                 .withInitialCacheConfigurations(cacheConfigurations)
@@ -117,7 +119,8 @@ public class CacheConfig {
                 "randomWords",
                 "quizQuestions",
                 "userStats",
-                "quizHistory"
+                "quizHistory",
+                "savedWordsCount"
         );
         cacheManager.setAllowNullValues(false);
         return cacheManager;
