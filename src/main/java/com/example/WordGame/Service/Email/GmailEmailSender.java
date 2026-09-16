@@ -10,6 +10,8 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Component;
 
+import java.io.UnsupportedEncodingException;
+
 @Component
 @RequiredArgsConstructor
 @ConditionalOnProperty(name = "app.mail.provider", havingValue = "gmail", matchIfMissing = true)
@@ -20,16 +22,23 @@ public class GmailEmailSender implements EmailSender {
     private final JavaMailSender mailSender;
 
     @Override
-    public void send(String to, String subject, String htmlBody, String from) {
+    public void send(String to, String subject, String htmlBody, String from, String fromName, String replyTo) {
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-            helper.setFrom(from);
+            if (fromName == null || fromName.isBlank()) {
+                helper.setFrom(from);
+            } else {
+                helper.setFrom(from, fromName);
+            }
             helper.setTo(to);
+            if (replyTo != null && !replyTo.isBlank()) {
+                helper.setReplyTo(replyTo);
+            }
             helper.setSubject(subject);
             helper.setText(htmlBody, true);
             mailSender.send(message);
-        } catch (MessagingException | RuntimeException ex) {
+        } catch (MessagingException | UnsupportedEncodingException | RuntimeException ex) {
             logger.error("Failed to send Gmail message to {}", to, ex);
             throw new IllegalStateException("Gmail email delivery failed", ex);
         }

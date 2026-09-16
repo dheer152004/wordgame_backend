@@ -19,6 +19,12 @@ public class EmailService {
     @Value("${app.mail.from}")
     private String from;
 
+    @Value("${app.mail.from-name:Nroq}")
+    private String fromName;
+
+    @Value("${app.mail.reply-to:mail@nroq.in}")
+    private String replyTo;
+
     private final Logger logger = LoggerFactory.getLogger(EmailService.class);
 
     public EmailService(EmailSender emailSender) {
@@ -34,9 +40,9 @@ public class EmailService {
         }
 
         try {
-            emailSender.send(to, subject, htmlBody, from);
+            emailSender.send(to, normalizeSubject(subject), htmlBody, from, fromName, replyTo);
             logger.info("Email successfully sent to {} with subject '{}'",
-                    to, subject);
+                to, normalizeSubject(subject));
         } catch (RuntimeException ex) {
             logger.error("Failed to send email to {}", to, ex);
         }
@@ -49,13 +55,18 @@ public class EmailService {
         }
 
         try {
-            emailSender.send(to, subject, htmlBody, from);
-            logger.info("Email successfully sent to {} with subject '{}'", to, subject);
+            String normalizedSubject = normalizeSubject(subject);
+            emailSender.send(to, normalizedSubject, htmlBody, from, fromName, replyTo);
+            logger.info("Email successfully sent to {} with subject '{}'", to, normalizedSubject);
             return true;
         } catch (RuntimeException ex) {
-            logger.error("Synchronous email delivery failed to {} with subject '{}'", to, subject, ex);
+            logger.error("Synchronous email delivery failed to {} with subject '{}'", to, normalizeSubject(subject), ex);
             return false;
         }
+    }
+
+    private String normalizeSubject(String subject) {
+        return subject == null || subject.isBlank() ? "WordGame notification" : subject.trim();
     }
 
     

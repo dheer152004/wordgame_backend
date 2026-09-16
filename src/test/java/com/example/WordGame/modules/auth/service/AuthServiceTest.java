@@ -1,6 +1,7 @@
 package com.example.WordGame.modules.auth.service;
 
 import com.example.WordGame.Service.Email.EmailService;
+import com.example.WordGame.Service.Email.EmailSender;
 import com.example.WordGame.exceptions.ApiException;
 import com.example.WordGame.modules.auth.DTO.LoginRequest;
 import com.example.WordGame.modules.auth.DTO.LoginResponseDTO;
@@ -71,13 +72,15 @@ class AuthServiceTest {
                 return java.util.Collections.emptyList();
             }
         };
-        emailService = new EmailService(null);
+        emailService = new EmailService((EmailSender) (to, subject, htmlBody, from, fromName, replyTo) -> {
+        });
         pendingRegistrationRepository = (PendingRegistrationRepository) Proxy.newProxyInstance(
             PendingRegistrationRepository.class.getClassLoader(),
             new Class[]{PendingRegistrationRepository.class},
             (proxy, method, args) -> {
                 if (method.getReturnType().equals(boolean.class)) return false;
                 if (method.getReturnType().equals(Optional.class)) return Optional.empty();
+                if (method.getReturnType().equals(java.util.List.class)) return java.util.Collections.emptyList();
                 if (method.getName().equals("save")) return args[0];
                 return null;
             });

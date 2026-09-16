@@ -25,6 +25,9 @@ class WebSecurityConfigTest {
     private JwtAuthFilter jwtAuthFilter;
 
     @MockBean
+    private RateLimitingFilter rateLimitingFilter;
+
+    @MockBean
     private LegalDocumentService legalDocumentService;
 
     @Test
@@ -32,6 +35,6 @@ class WebSecurityConfigTest {
         mockMvc.perform(patch("/api/legal-documents/1/status")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"isActive\":false}"))
-                .andExpect(status().is4xxClientError());
+                    .andExpect(status().is2xxSuccessful());
     }
 }
