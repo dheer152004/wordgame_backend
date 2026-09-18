@@ -14,9 +14,10 @@ import static org.mockito.Mockito.when;
 class LanguageServiceTest {
 
     @Test
-    void shouldCreateLanguageWithProvidedValues() {
+    void shouldGenerateDisplayOrderWhenCreatingLanguage() {
         LanguageRepository repository = Mockito.mock(LanguageRepository.class);
         when(repository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(repository.findMaxDisplayOrder()).thenReturn(0L);
 
         LanguageServiceImpl service = new LanguageServiceImpl(repository);
 
@@ -26,7 +27,6 @@ class LanguageServiceTest {
         request.setGrammarName("Grammar");
         request.setGrammarDescription("English grammar");
         request.setGrammarActive(true);
-        request.setDisplayOrder(10L);
         request.setIsActive(true);
 
         LanguageResponseDTO response = service.createLanguage(request);
@@ -35,7 +35,7 @@ class LanguageServiceTest {
         assertEquals("English", response.getName());
         assertEquals("Grammar", response.getGrammarName());
         assertTrue(response.getGrammarActive());
-        assertEquals(10L, response.getDisplayOrder());
+        assertEquals(1L, response.getDisplayOrder());
         assertTrue(response.getIsActive());
     }
 }

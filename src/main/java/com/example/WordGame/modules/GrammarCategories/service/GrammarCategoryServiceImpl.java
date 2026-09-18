@@ -51,7 +51,8 @@ public class GrammarCategoryServiceImpl implements GrammarCategoryService {
         grammarCategory.setName(request.getName());
         grammarCategory.setDisplayName(request.getDisplayName());
         grammarCategory.setDescription(request.getDescription());
-        grammarCategory.setDisplayOrder(request.getDisplayOrder());
+        Long maxDisplayOrder = grammarCategoryRepository.findMaxDisplayOrderByLanguageId(language.getId());
+        grammarCategory.setDisplayOrder(maxDisplayOrder + 1);
         grammarCategory.setIsActive(request.getIsActive() != null ? request.getIsActive() : true);
 
         return toResponseDTO(grammarCategoryRepository.save(grammarCategory));

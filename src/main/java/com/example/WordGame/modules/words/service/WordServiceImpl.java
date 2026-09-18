@@ -10,7 +10,7 @@ import com.example.WordGame.modules.category.Entities.Category;
 import com.example.WordGame.modules.category.repository.CategoryRepo;
 import com.example.WordGame.modules.words.DTO.*;
 import com.example.WordGame.modules.words.Entities.Word;
-import com.example.WordGame.modules.words.WordType;
+// import com.example.WordGame.modules.words.WordType;
 import com.example.WordGame.modules.words.repository.WordRepo;
 import com.example.WordGame.modules.roles.user.Entities.UserProfile;
 import com.example.WordGame.modules.roles.user.profile.UserProfileRepository;
@@ -146,9 +146,9 @@ public class WordServiceImpl implements WordService {
         WordDetailResponseDTO responseDTO = new WordDetailResponseDTO();
         responseDTO.setId(word.getId());
         responseDTO.setWord(word.getWord());
-        responseDTO.setWordType(word.getWordType());
-        responseDTO.setExpandedForm(word.getExpandedForm());
-        responseDTO.setPartOfSpeech(word.getPartOfSpeech());
+        // responseDTO.setWordType(word.getWordType());
+        // responseDTO.setExpandedForm(word.getExpandedForm());
+        // responseDTO.setPartOfSpeech(word.getPartOfSpeech());
         List<Category> categories = new ArrayList<>(word.getCategories());
         responseDTO.setCategories(categories.stream()
             .map(category -> new WordCategoryDTO(category.getId(), category.getName(),
@@ -224,9 +224,9 @@ public class WordServiceImpl implements WordService {
 
         Word word = new Word();
         word.setWord(request.getWord());
-        word.setWordType(request.getWordType() != null ? request.getWordType() : WordType.NORMAL_WORD);
-        word.setExpandedForm(request.getExpandedForm());
-        word.setPartOfSpeech(request.getPartOfSpeech());
+        // word.setWordType(request.getWordType() != null ? request.getWordType() : WordType.NORMAL_WORD);
+        // word.setExpandedForm(request.getExpandedForm());
+        // word.setPartOfSpeech(request.getPartOfSpeech());
         word.setMeaning(request.getMeaning());
         if (request.getDescription() != null) {
             word.setDescription(request.getDescription());
@@ -332,17 +332,17 @@ public class WordServiceImpl implements WordService {
             word.setWord(request.getWord());
         }
 
-        if (request.getWordType() != null) {
-            word.setWordType(request.getWordType());
-        }
+        // if (request.getWordType() != null) {
+        //     word.setWordType(request.getWordType());
+        // }
 
-        if (request.getExpandedForm() != null) {
-            word.setExpandedForm(request.getExpandedForm());
-        }
+        // if (request.getExpandedForm() != null) {
+        //     word.setExpandedForm(request.getExpandedForm());
+        // }
 
-        if (request.getPartOfSpeech() != null) {
-            word.setPartOfSpeech(request.getPartOfSpeech());
-        }
+        // if (request.getPartOfSpeech() != null) {
+        //     word.setPartOfSpeech(request.getPartOfSpeech());
+        // }
 
         if (request.getMeaning() != null) {
             if (request.getMeaning().isBlank()) {
@@ -662,9 +662,9 @@ public class WordServiceImpl implements WordService {
         WordResponseDTO responseDTO = new WordResponseDTO();
         responseDTO.setId(word.getId());
         responseDTO.setWord(word.getWord());
-        responseDTO.setWordType(word.getWordType());
-        responseDTO.setExpandedForm(word.getExpandedForm());
-        responseDTO.setPartOfSpeech(word.getPartOfSpeech());
+        // responseDTO.setWordType(word.getWordType());
+        // responseDTO.setExpandedForm(word.getExpandedForm());
+        // responseDTO.setPartOfSpeech(word.getPartOfSpeech());
         List<Category> categories = new ArrayList<>(word.getCategories());
         responseDTO.setCategories(categories.stream()
             .map(category -> new WordCategoryDTO(category.getId(), category.getName(),

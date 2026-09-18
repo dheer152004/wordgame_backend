@@ -9,6 +9,5 @@ public class LanguageRequestDTO {
     private String grammarName;
     private String grammarDescription;
     private Boolean grammarActive;
-    private Long displayOrder;
     private Boolean isActive;
 }

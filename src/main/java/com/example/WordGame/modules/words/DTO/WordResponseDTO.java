@@ -4,13 +4,16 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+
+import com.example.WordGame.modules.GrammarValues.DTO.GrammarValueResponseDTO;
+import com.example.WordGame.modules.language.DTO.LanguageResponseDTO;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 import java.util.List;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.example.WordGame.modules.words.DTO.SourceCreditsDTO;
-import com.example.WordGame.modules.words.PartOfSpeech;
-import com.example.WordGame.modules.words.WordType;
+import com.example.WordGame.modules.words.DTO.WordDetailResponseDTO;
+// import com.example.WordGame.modules.words.PartOfSpeech;
+// import com.example.WordGame.modules.words.WordType;
 
 @Data
 @Builder
@@ -21,9 +24,12 @@ public class WordResponseDTO {
 
     private Long id;
     private String word;
-    private WordType wordType;
-    private String expandedForm;
-    private PartOfSpeech partOfSpeech;
+    // private WordType wordType;
+    // private String expandedForm;
+    // private PartOfSpeech partOfSpeech;
+    private LanguageResponseDTO language;
+    private List<GrammarValueResponseDTO> grammarValues;
+    private WordDetailResponseDTO wordDetails;
     private List<WordCategoryDTO> categories;
     private String meaning;
     private List<ImageUrlDTO> images;

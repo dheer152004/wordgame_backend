@@ -51,7 +51,9 @@ public class GrammarValueServiceImpl implements GrammarValueService {
         grammarValue.setName(request.getName());
         grammarValue.setDisplayName(request.getDisplayName());
         grammarValue.setDescription(request.getDescription());
-        grammarValue.setDisplayOrder(request.getDisplayOrder());
+        Long maxDisplayOrder = grammarValueRepository
+            .findMaxDisplayOrderByGrammarCategoryId(grammarCategory.getId());
+        grammarValue.setDisplayOrder(maxDisplayOrder + 1);
         grammarValue.setIsActive(request.getIsActive() != null ? request.getIsActive() : true);
 
         return toResponseDTO(grammarValueRepository.save(grammarValue));

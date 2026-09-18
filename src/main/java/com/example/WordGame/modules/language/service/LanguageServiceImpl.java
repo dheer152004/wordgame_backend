@@ -42,7 +42,7 @@ public class LanguageServiceImpl implements LanguageService {
         language.setGrammarName(request.getGrammarName());
         language.setGrammarDescription(request.getGrammarDescription());
         language.setGrammarActive(request.getGrammarActive() != null ? request.getGrammarActive() : false);
-        language.setDisplayOrder(request.getDisplayOrder());
+        language.setDisplayOrder(languageRepository.findMaxDisplayOrder() + 1);
         language.setIsActive(request.getIsActive() != null ? request.getIsActive() : true);
 
         return toResponseDTO(languageRepository.save(language));
