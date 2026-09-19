@@ -11,6 +11,8 @@ import java.util.List;
 
 // import com.example.WordGame.Entities.WordRelation;
 import com.example.WordGame.modules.category.Entities.Category;
+import com.example.WordGame.modules.GrammarValues.entity.GrammarValue;
+import com.example.WordGame.modules.language.entity.Language;
 import com.example.WordGame.modules.quiz.Entities.QuizQuestion;
 import com.example.WordGame.modules.roles.UserShare;
 import com.example.WordGame.modules.savedwords.Entities.UserSavedWord;
@@ -43,6 +45,16 @@ public class Word {
     @Column(name = "display_order")
     private java.util.Map<Long, Long> categoryDisplayOrders = new java.util.HashMap<>();
 
+        @ManyToOne(fetch = FetchType.LAZY)
+        @JoinColumn(name = "language_id")
+        private Language language;
+
+        @ManyToMany(fetch = FetchType.LAZY)
+        @JoinTable(name = "word_grammar_values",
+            joinColumns = @JoinColumn(name = "word_id"),
+            inverseJoinColumns = @JoinColumn(name = "grammar_value_id"))
+        private java.util.Set<GrammarValue> grammarValues = new java.util.LinkedHashSet<>();
+
     @Column(nullable = false, length = 255)
     private String word;
 
@@ -52,6 +64,12 @@ public class Word {
 
     @Column(name = "expanded_form")
     private String expandedForm;
+
+    @Column(name = "usage", columnDefinition = "TEXT")
+    private String usage;
+
+    @Column(name = "etymology", columnDefinition = "TEXT")
+    private String etymology;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "part_of_speech")

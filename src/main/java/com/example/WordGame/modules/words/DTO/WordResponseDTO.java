@@ -29,7 +29,7 @@ public class WordResponseDTO {
     // private PartOfSpeech partOfSpeech;
     private LanguageResponseDTO language;
     private List<GrammarValueResponseDTO> grammarValues;
-    private WordDetailResponseDTO wordDetails;
+    private WordDetailsRequestDTO wordDetails;
     private List<WordCategoryDTO> categories;
     private String meaning;
     private List<ImageUrlDTO> images;

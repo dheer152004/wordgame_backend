@@ -5,6 +5,7 @@ import com.example.WordGame.modules.words.service.WordService;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.MediaType;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -20,9 +21,16 @@ public class EditorWordController {
 
     private final WordService wordService;
 
-    @PostMapping
+    @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<WordResponseDTO> createWordJson(@RequestBody WordRequestDTO request) {
         log.info("[Editor] createWordJson received quizModes: {}", request.getQuizModes());
+        WordResponseDTO word = wordService.createWord(request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(word);
+    }
+
+    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<WordResponseDTO> createWordMultipart(@ModelAttribute WordRequestDTO request) {
+        log.info("[Editor] createWordMultipart received quizModes: {}", request.getQuizModes());
         WordResponseDTO word = wordService.createWord(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(word);
     }

@@ -8,6 +8,10 @@ import com.example.WordGame.exceptions.ApiException;
 import com.example.WordGame.exceptions.ResourceNotFoundExecption;
 import com.example.WordGame.modules.category.Entities.Category;
 import com.example.WordGame.modules.category.repository.CategoryRepo;
+import com.example.WordGame.modules.GrammarValues.entity.GrammarValue;
+import com.example.WordGame.modules.GrammarValues.repository.GrammarValueRepository;
+import com.example.WordGame.modules.language.entity.Language;
+import com.example.WordGame.modules.language.repository.LanguageRepository;
 import com.example.WordGame.modules.words.DTO.*;
 import com.example.WordGame.modules.words.Entities.Word;
 // import com.example.WordGame.modules.words.WordType;
@@ -49,6 +53,10 @@ public class WordServiceImpl implements WordService {
     private final ObjectMapper objectMapper;
     @Autowired
     private UserProfileRepository userProfileRepository;
+    @Autowired
+    private LanguageRepository languageRepository;
+    @Autowired
+    private GrammarValueRepository grammarValueRepository;
 
     // ✅ ONLY ONE NEW METHOD - Random words with caching
     @Override
@@ -146,6 +154,11 @@ public class WordServiceImpl implements WordService {
         WordDetailResponseDTO responseDTO = new WordDetailResponseDTO();
         responseDTO.setId(word.getId());
         responseDTO.setWord(word.getWord());
+        responseDTO.setLanguage(toLanguageResponse(word.getLanguage()));
+        responseDTO.setGrammarValues(word.getGrammarValues().stream()
+            .map(this::toGrammarValueResponse)
+            .toList());
+        responseDTO.setWordDetails(toWordDetailsResponse(word));
         // responseDTO.setWordType(word.getWordType());
         // responseDTO.setExpandedForm(word.getExpandedForm());
         // responseDTO.setPartOfSpeech(word.getPartOfSpeech());
@@ -231,6 +244,9 @@ public class WordServiceImpl implements WordService {
         if (request.getDescription() != null) {
             word.setDescription(request.getDescription());
         }
+
+        applyLanguageAndGrammarValues(word, request);
+        applyWordDetails(word, request.getWordDetails());
 
         if (request.getSourceAndCredits() != null) {
             word.setSourceCreditsJson(serializeSourceCredits(request.getSourceAndCredits()));
@@ -354,6 +370,9 @@ public class WordServiceImpl implements WordService {
         if (request.getDescription() != null) {
             word.setDescription(request.getDescription());
         }
+
+        applyLanguageAndGrammarValues(word, request);
+        applyWordDetails(word, request.getWordDetails());
 
         if (request.getCategories() != null && !request.getCategories().isEmpty()) {
             List<WordCategoryDTO> categoryAssignments = resolveCategoryAssignments(request);
@@ -662,6 +681,11 @@ public class WordServiceImpl implements WordService {
         WordResponseDTO responseDTO = new WordResponseDTO();
         responseDTO.setId(word.getId());
         responseDTO.setWord(word.getWord());
+        responseDTO.setLanguage(toLanguageResponse(word.getLanguage()));
+        responseDTO.setGrammarValues(word.getGrammarValues().stream()
+            .map(this::toGrammarValueResponse)
+            .toList());
+        responseDTO.setWordDetails(toWordDetailsResponse(word));
         // responseDTO.setWordType(word.getWordType());
         // responseDTO.setExpandedForm(word.getExpandedForm());
         // responseDTO.setPartOfSpeech(word.getPartOfSpeech());
@@ -704,6 +728,79 @@ public class WordServiceImpl implements WordService {
 
         log.info("🔁 convertToResponseDTO returning quizModes={} for wordId={}", responseDTO.getQuizModes(), word.getId());
         return responseDTO;
+    }
+
+    private void applyLanguageAndGrammarValues(Word word, WordRequestDTO request) {
+        if (request.getLanguageId() != null) {
+            Language language = languageRepository.findById(request.getLanguageId())
+                    .orElseThrow(() -> new ApiException("Language not found with id: " + request.getLanguageId()));
+            word.setLanguage(language);
+        }
+
+        if (request.getGrammarValueIds() != null) {
+            Set<GrammarValue> grammarValues = new LinkedHashSet<>();
+            for (Long grammarValueId : request.getGrammarValueIds()) {
+                GrammarValue grammarValue = grammarValueRepository.findById(grammarValueId)
+                        .orElseThrow(() -> new ApiException("Grammar value not found with id: " + grammarValueId));
+                grammarValues.add(grammarValue);
+            }
+            word.setGrammarValues(grammarValues);
+        }
+    }
+
+    private void applyWordDetails(Word word, WordDetailsRequestDTO details) {
+        if (details == null) return;
+        word.setExpandedForm(details.getExpandedForm());
+        word.setUsage(details.getUsage());
+        word.setEtymology(details.getEtymology());
+    }
+
+    private WordDetailsRequestDTO toWordDetailsResponse(Word word) {
+        WordDetailsRequestDTO details = new WordDetailsRequestDTO();
+        details.setId(word.getId());
+        details.setExpandedForm(word.getExpandedForm());
+        details.setUsage(word.getUsage());
+        details.setEtymology(word.getEtymology());
+        return details;
+    }
+
+    private com.example.WordGame.modules.language.DTO.LanguageResponseDTO toLanguageResponse(Language language) {
+        if (language == null) return null;
+        com.example.WordGame.modules.language.DTO.LanguageResponseDTO response =
+                new com.example.WordGame.modules.language.DTO.LanguageResponseDTO();
+        response.setId(language.getId());
+        response.setCode(language.getCode());
+        response.setName(language.getName());
+        response.setGrammarName(language.getGrammarName());
+        response.setGrammarDescription(language.getGrammarDescription());
+        response.setGrammarActive(language.getGrammarActive());
+        response.setDisplayOrder(language.getDisplayOrder());
+        response.setIsActive(language.getIsActive());
+        return response;
+    }
+
+    private com.example.WordGame.modules.GrammarValues.DTO.GrammarValueResponseDTO toGrammarValueResponse(
+            GrammarValue grammarValue) {
+        com.example.WordGame.modules.GrammarValues.DTO.GrammarValueResponseDTO response =
+                new com.example.WordGame.modules.GrammarValues.DTO.GrammarValueResponseDTO();
+        response.setId(grammarValue.getId());
+        response.setGrammarCategoryId(grammarValue.getGrammarCategory().getId());
+        response.setGrammarCategoryName(grammarValue.getGrammarCategory().getName());
+        response.setGrammarCategory(grammarValue.getGrammarCategory().getDisplayName() != null
+                ? grammarValue.getGrammarCategory().getDisplayName()
+                : grammarValue.getGrammarCategory().getName());
+        response.setGrammarValue(grammarValue.getDisplayName() != null
+                ? grammarValue.getDisplayName()
+                : grammarValue.getName());
+        response.setLanguageId(grammarValue.getGrammarCategory().getLanguage().getId());
+        response.setLanguageCode(grammarValue.getGrammarCategory().getLanguage().getCode());
+        response.setLanguageName(grammarValue.getGrammarCategory().getLanguage().getName());
+        response.setName(grammarValue.getName());
+        response.setDisplayName(grammarValue.getDisplayName());
+        response.setDescription(grammarValue.getDescription());
+        response.setDisplayOrder(grammarValue.getDisplayOrder());
+        response.setIsActive(grammarValue.getIsActive());
+        return response;
     }
 
     private List<String> mapQuizModes(Set<com.example.WordGame.modules.words.QuizMode> quizModes) {

@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.Map;
 import com.fasterxml.jackson.annotation.JsonProperty;
 // import com.example.WordGame.modules.words.PartOfSpeech;
-import com.example.WordGame.modules.words.WordType;
+// import com.example.WordGame.modules.words.WordType;
 
 @Data
 public class WordRequestDTO {
@@ -15,6 +15,7 @@ public class WordRequestDTO {
     private String description;
     private Long languageId;
     private List<Long> grammarValueIds;
+    private WordDetailsRequestDTO wordDetails;
     private List<WordCategoryDTO> categories;
     private List<MultipartFile> wordImages;
     private List<MultipartFile> wordVideos;

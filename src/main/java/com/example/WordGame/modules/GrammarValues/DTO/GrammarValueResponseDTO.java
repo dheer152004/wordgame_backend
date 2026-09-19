@@ -10,6 +10,8 @@ public class GrammarValueResponseDTO {
     private Long languageId;
     private String languageCode;
     private String languageName;
+    private String grammarCategory;
+    private String grammarValue;
     private String name;
     private String displayName;
     private String description;
