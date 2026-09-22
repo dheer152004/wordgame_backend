@@ -6,8 +6,6 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.util.List;
-import com.example.WordGame.modules.GrammarValues.DTO.GrammarValueResponseDTO;
-import com.example.WordGame.modules.language.DTO.LanguageResponseDTO;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 @Data
@@ -18,8 +16,8 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 public class WordDetailResponseDTO {
     private Long id;
     private String word;
-    private LanguageResponseDTO language;
-    private List<GrammarValueResponseDTO> grammarValues;
+    private WordLanguageResponseDTO language;
+    private List<WordGrammarValueResponseDTO> grammarValues;
     private WordDetailsRequestDTO wordDetails;
     private List<WordCategoryDTO> categories;
     private String meaning;

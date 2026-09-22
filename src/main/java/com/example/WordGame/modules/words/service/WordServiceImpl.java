@@ -764,43 +764,20 @@ public class WordServiceImpl implements WordService {
         return details;
     }
 
-    private com.example.WordGame.modules.language.DTO.LanguageResponseDTO toLanguageResponse(Language language) {
+        private WordLanguageResponseDTO toLanguageResponse(Language language) {
         if (language == null) return null;
-        com.example.WordGame.modules.language.DTO.LanguageResponseDTO response =
-                new com.example.WordGame.modules.language.DTO.LanguageResponseDTO();
-        response.setId(language.getId());
-        response.setCode(language.getCode());
-        response.setName(language.getName());
-        response.setGrammarName(language.getGrammarName());
-        response.setGrammarDescription(language.getGrammarDescription());
-        response.setGrammarActive(language.getGrammarActive());
-        response.setDisplayOrder(language.getDisplayOrder());
-        response.setIsActive(language.getIsActive());
-        return response;
+        return new WordLanguageResponseDTO(language.getId(), language.getCode(), language.getName());
     }
 
-    private com.example.WordGame.modules.GrammarValues.DTO.GrammarValueResponseDTO toGrammarValueResponse(
+        private WordGrammarValueResponseDTO toGrammarValueResponse(
             GrammarValue grammarValue) {
-        com.example.WordGame.modules.GrammarValues.DTO.GrammarValueResponseDTO response =
-                new com.example.WordGame.modules.GrammarValues.DTO.GrammarValueResponseDTO();
-        response.setId(grammarValue.getId());
-        response.setGrammarCategoryId(grammarValue.getGrammarCategory().getId());
-        response.setGrammarCategoryName(grammarValue.getGrammarCategory().getName());
-        response.setGrammarCategory(grammarValue.getGrammarCategory().getDisplayName() != null
+        String grammarCategory = grammarValue.getGrammarCategory().getDisplayName() != null
                 ? grammarValue.getGrammarCategory().getDisplayName()
-                : grammarValue.getGrammarCategory().getName());
-        response.setGrammarValue(grammarValue.getDisplayName() != null
+            : grammarValue.getGrammarCategory().getName();
+        String grammarValueName = grammarValue.getDisplayName() != null
                 ? grammarValue.getDisplayName()
-                : grammarValue.getName());
-        response.setLanguageId(grammarValue.getGrammarCategory().getLanguage().getId());
-        response.setLanguageCode(grammarValue.getGrammarCategory().getLanguage().getCode());
-        response.setLanguageName(grammarValue.getGrammarCategory().getLanguage().getName());
-        response.setName(grammarValue.getName());
-        response.setDisplayName(grammarValue.getDisplayName());
-        response.setDescription(grammarValue.getDescription());
-        response.setDisplayOrder(grammarValue.getDisplayOrder());
-        response.setIsActive(grammarValue.getIsActive());
-        return response;
+            : grammarValue.getName();
+        return new WordGrammarValueResponseDTO(grammarCategory, grammarValueName);
     }
 
     private List<String> mapQuizModes(Set<com.example.WordGame.modules.words.QuizMode> quizModes) {
