@@ -56,6 +56,9 @@ public class WebSecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/admin/users/{userId}/consents").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/auth/register").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/admin/words/**").permitAll()
+
+                        .requestMatchers(HttpMethod.GET, "/api/admin/word-of-the-day/**").permitAll()
+                        .requestMatchers("/api/admin/word-of-the-day/**").hasRole("ADMIN")
                         // Only admins can create admin-scoped resources
                         .requestMatchers(HttpMethod.POST, "/api/admin/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/genres").hasRole("ADMIN")
