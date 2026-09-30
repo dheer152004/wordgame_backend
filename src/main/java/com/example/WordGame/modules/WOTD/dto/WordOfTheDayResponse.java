@@ -10,9 +10,9 @@ import java.time.LocalDateTime;
 @Value
 @Builder
 public class WordOfTheDayResponse {
-    Long id;
+    // Long id;
     Long wordOfTheDayId;
-    // Long wordId;
+    Long wordId;
     LocalDate publishOn;
     WordOfTheDayStatus status;
     LocalDateTime createdAt;

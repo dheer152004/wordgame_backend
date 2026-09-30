@@ -13,5 +13,7 @@ public interface WordOfTheDayRepository extends JpaRepository<WordOfTheDay, Long
 
     Optional<WordOfTheDay> findByPublishOnAndStatus(LocalDate publishOn, WordOfTheDayStatus status);
 
+    List<WordOfTheDay> findByPublishOnLessThanEqualAndStatus(LocalDate publishOn, WordOfTheDayStatus status);
+
     List<WordOfTheDay> findByPublishOnBetweenOrderByPublishOnAsc(LocalDate from, LocalDate to);
 }

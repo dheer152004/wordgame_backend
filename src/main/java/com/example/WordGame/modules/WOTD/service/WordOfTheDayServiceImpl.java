@@ -13,10 +13,12 @@ import com.example.WordGame.modules.words.Entities.Word;
 import com.example.WordGame.modules.words.repository.WordRepo;
 import com.example.WordGame.modules.words.service.WordService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
 
 @Service
@@ -29,10 +31,10 @@ public class WordOfTheDayServiceImpl implements WordOfTheDayService {
     @Override
     @Transactional
     public WordOfTheDayPublicResponse getToday() {
-        WordOfTheDay entry = repository.findByPublishOnAndStatus(LocalDate.now(), WordOfTheDayStatus.PUBLISHED)
-                .orElseGet(() -> repository.findByPublishOnAndStatus(LocalDate.now(), WordOfTheDayStatus.SCHEDULED)
-                        .map(this::publish)
-                        .orElseThrow(() -> new ApiException("No word of the day is published today")));
+        LocalDate today = LocalDate.now(ZoneId.of("Asia/Kolkata"));
+        publishDueWords(today);
+        WordOfTheDay entry = repository.findByPublishOnAndStatus(today, WordOfTheDayStatus.PUBLISHED)
+            .orElseThrow(() -> new ApiException("No word of the day is published today"));
         Word word = entry.getWord();
         WordDetailResponseDTO details = wordService.getWordDetail(word.getId());
         String wordType = word.getWordType() == null ? null
@@ -109,9 +111,20 @@ public class WordOfTheDayServiceImpl implements WordOfTheDayService {
                 .stream().map(this::toResponse).toList();
     }
 
-    private WordOfTheDay publish(WordOfTheDay entry) {
-        entry.setStatus(WordOfTheDayStatus.PUBLISHED);
-        return repository.save(entry);
+    @Scheduled(fixedDelayString = "${wotd.publish-check-delay-ms:60000}")
+    @Transactional
+    public void publishDueWords() {
+        publishDueWords(LocalDate.now(ZoneId.of("Asia/Kolkata")));
+    }
+
+    private void publishDueWords(LocalDate today) {
+        List<WordOfTheDay> dueEntries = repository.findByPublishOnLessThanEqualAndStatus(
+                today, WordOfTheDayStatus.SCHEDULED);
+        if (dueEntries.isEmpty()) {
+            return;
+        }
+        dueEntries.forEach(entry -> entry.setStatus(WordOfTheDayStatus.PUBLISHED));
+        repository.saveAll(dueEntries);
     }
 
     private void requireCreateFields(WordOfTheDayRequest request) {
@@ -135,9 +148,9 @@ public class WordOfTheDayServiceImpl implements WordOfTheDayService {
 
     private WordOfTheDayResponse toResponse(WordOfTheDay entry) {
         return WordOfTheDayResponse.builder()
-                .id(entry.getId())
+                // .id(entry.getId())
                 .wordOfTheDayId(entry.getId())
-                // .wordId(entry.getWord().getId())
+            .wordId(entry.getWord().getId())
                 .publishOn(entry.getPublishOn())
                 .status(entry.getStatus())
                 .createdAt(entry.getCreatedAt())
