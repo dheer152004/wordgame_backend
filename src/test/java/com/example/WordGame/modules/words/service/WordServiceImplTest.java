@@ -5,6 +5,7 @@ import com.example.WordGame.modules.category.Entities.Category;
 import com.example.WordGame.modules.category.repository.CategoryRepo;
 import com.example.WordGame.modules.words.DTO.WordDetailResponseDTO;
 import com.example.WordGame.modules.words.DTO.WordCategoryDTO;
+import com.example.WordGame.modules.words.DTO.ImageUrlDTO;
 import com.example.WordGame.modules.words.DTO.WordRequestDTO;
 import com.example.WordGame.modules.words.DTO.WordResponseDTO;
 import com.example.WordGame.modules.words.Entities.Word;
@@ -26,12 +27,15 @@ import java.util.LinkedHashSet;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 class WordServiceImplTest {
 
     @Test
-    void createWordShouldPopulateQuizModesAndDisplayOrderInResponse() {
+    void createWordShouldPopulateQuizModesAndDisplayOrderInResponse() throws Exception {
         Category category = new Category();
         category.setId(1L);
         category.setName("TOTOTP");
@@ -41,6 +45,7 @@ class WordServiceImplTest {
         request.setMeaning("A pleasant surprise");
         request.setCategories(List.of(new WordCategoryDTO(1L, null, null)));
         request.setQuizModes(List.of("IMAGE", "TEXT"));
+        request.setImages(List.of(new ImageUrlDTO("data:image/jpeg;base64,aGVsbG8=")));
 
         Word savedWord = new Word();
         savedWord.setId(1L);
@@ -93,11 +98,16 @@ class WordServiceImplTest {
                 }
         );
 
+        ImageStorageService imageStorageService = mock(ImageStorageService.class);
+        when(imageStorageService.uploadMedia(any(byte[].class), eq("word-image-1.jpg"),
+            eq("image/jpeg"), eq("word"), eq("image/"), eq("serendipity"), eq(1L), eq(1)))
+            .thenReturn("https://wordgame-bucket.s3.ap-south-1.amazonaws.com/word/1.image.1.jpg");
+
         WordServiceImpl wordService = new WordServiceImpl(
                 wordRepo,
                 categoryRepo,
                 new ModelMapper(),
-                mock(ImageStorageService.class),
+            imageStorageService,
                 new ObjectMapper()
         );
 
@@ -109,6 +119,9 @@ class WordServiceImplTest {
         assertEquals(1L, response.getCategories().get(0).getCategoryId());
         assertEquals("TOTOTP", response.getCategories().get(0).getCategoryName());
         assertEquals(10000L, response.getCategories().get(0).getDisplayOrder());
+        assertEquals("https://wordgame-bucket.s3.ap-south-1.amazonaws.com/word/1.image.1.jpg",
+            response.getImages().get(0).getImageUrl());
+        assertEquals(response.getImages().get(0).getImageUrl(), savedWord.getImages().get(0));
     }
 
     @Test

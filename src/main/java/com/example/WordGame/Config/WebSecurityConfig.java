@@ -19,7 +19,6 @@ import org.springframework.security.oauth2.client.registration.ClientRegistratio
 import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 
 import com.example.WordGame.modules.auth.service.JwtAuthFilter;
-import org.springframework.core.annotation.Order;
 
 @Configuration
 @RequiredArgsConstructor
@@ -43,6 +42,8 @@ public class WebSecurityConfig {
                         // Public endpoints - no authentication required
                         .requestMatchers("/api/auth/**").permitAll()  // Login, Register
                         .requestMatchers("/api/v1/login").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/app/version").permitAll()
+                        .requestMatchers("/api/v1/admin/app-versions/**").hasRole("ADMIN")
                         // allow public reads of genres and legal documents
                         .requestMatchers(HttpMethod.GET, "/api/genres/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/legal-documents").permitAll()

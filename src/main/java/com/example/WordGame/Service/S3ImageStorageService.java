@@ -89,8 +89,50 @@ public class S3ImageStorageService implements ImageStorageService {
     }
 
     @Override
+    public String uploadMedia(byte[] content, String originalFilename, String contentType,
+                              String folder, String mediaType, String resourceName,
+                              Long resourceId, int mediaNumber) throws IOException {
+        if (content == null || content.length == 0) {
+            throw new IOException("Media content must not be empty");
+        }
+        if (contentType == null || !contentType.startsWith(mediaType)) {
+            throw new IOException("Only " + mediaType + " files are allowed. Found: " + contentType);
+        }
+
+        String extension = getFileExtension(originalFilename);
+        String objectKey;
+        if (resourceId != null) {
+            String mediaKind = mediaType.replace("/", "").toLowerCase();
+            objectKey = folder + "/" + resourceId + "." + mediaKind + "." + mediaNumber + extension;
+        } else {
+            String objectName = sanitizeName(resourceName);
+            objectKey = folder + "/" + objectName + "-" + UUID.randomUUID() + "-media-" + mediaNumber + extension;
+        }
+
+        try {
+            PutObjectRequest putObjectRequest = PutObjectRequest.builder()
+                    .bucket(properties.getBucket())
+                    .key(objectKey)
+                    .contentType(contentType)
+                    .cacheControl("public, max-age=31536000, immutable")
+                    .build();
+            s3Client.putObject(putObjectRequest, RequestBody.fromBytes(content));
+
+            String imageUrl = buildDefaultUrl() + "/" + objectKey;
+            log.info("Media uploaded successfully to S3: {}", imageUrl);
+            return imageUrl;
+        } catch (S3Exception e) {
+            log.error("Failed to upload image to S3: {}", e.getMessage(), e);
+            throw new IOException("S3 upload failed: " + e.getMessage(), e);
+        }
+    }
+
+    @Override
     public void deleteImage(String imageUrl) {
         if (imageUrl == null || imageUrl.isBlank()) {
+            return;
+        }
+        if (imageUrl.startsWith("data:")) {
             return;
         }
 

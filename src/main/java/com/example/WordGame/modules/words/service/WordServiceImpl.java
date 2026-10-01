@@ -32,6 +32,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -793,14 +794,20 @@ public class WordServiceImpl implements WordService {
 
     private List<String> resolveImagesJson(WordRequestDTO request, String resourceName, Long resourceId) {
         List<String> urls = new ArrayList<>();
+        int mediaNumber = 1;
         if (request.getImages() != null && !request.getImages().isEmpty()) {
-            request.getImages().stream()
-                    .map(ImageUrlDTO::getImageUrl)
-                    .filter(Objects::nonNull)
-                    .forEach(urls::add);
+            for (ImageUrlDTO image : request.getImages()) {
+                if (image == null || image.getImageUrl() == null) {
+                    continue;
+                }
+                String imageUrl = image.getImageUrl();
+                urls.add(imageUrl.startsWith("data:")
+                        ? uploadInlineImage(imageUrl, resourceName, resourceId, mediaNumber)
+                        : imageUrl);
+                mediaNumber++;
+            }
         }
         if (request.getWordImages() != null && !request.getWordImages().isEmpty()) {
-            int mediaNumber = 1;
             for (org.springframework.web.multipart.MultipartFile mf : request.getWordImages()) {
                 if (mf != null && !mf.isEmpty()) {
                     try {
@@ -815,6 +822,44 @@ public class WordServiceImpl implements WordService {
 
         if (urls.isEmpty()) return null;
         return urls;
+    }
+
+    private String uploadInlineImage(String dataUri, String resourceName, Long resourceId, int mediaNumber) {
+        int commaIndex = dataUri.indexOf(',');
+        if (commaIndex < 0) {
+            throw new ApiException("Invalid inline image data URI");
+        }
+
+        String metadata = dataUri.substring(5, commaIndex);
+        if (!metadata.toLowerCase(Locale.ROOT).endsWith(";base64")) {
+            throw new ApiException("Inline images must use Base64 data URI encoding");
+        }
+
+        String contentType = metadata.substring(0, metadata.indexOf(';'));
+        if (!contentType.toLowerCase(Locale.ROOT).startsWith("image/")) {
+            throw new ApiException("Only image data URIs can be uploaded as word images");
+        }
+
+        try {
+            byte[] imageContent = Base64.getDecoder().decode(dataUri.substring(commaIndex + 1));
+            String filename = "word-image-" + mediaNumber + imageExtension(contentType);
+            return imageUploadService.uploadMedia(imageContent, filename, contentType,
+                    "word", "image/", resourceName, resourceId, mediaNumber);
+        } catch (IllegalArgumentException | IOException e) {
+            throw new ApiException("Failed to upload inline image: " + e.getMessage());
+        }
+    }
+
+    private String imageExtension(String contentType) {
+        return switch (contentType.toLowerCase(Locale.ROOT)) {
+            case "image/jpeg", "image/jpg" -> ".jpg";
+            case "image/png" -> ".png";
+            case "image/gif" -> ".gif";
+            case "image/webp" -> ".webp";
+            case "image/svg+xml" -> ".svg";
+            case "image/bmp" -> ".bmp";
+            default -> ".img";
+        };
     }
 
     private List<String> resolveVideoUrls(WordRequestDTO request, String resourceName, Long resourceId) {
