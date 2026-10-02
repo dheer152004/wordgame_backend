@@ -8,6 +8,7 @@ import com.example.WordGame.modules.auth.DTO.RegisterRequest;
 import com.example.WordGame.modules.auth.entity.PendingRegistration;
 import com.example.WordGame.modules.auth.repository.AuthUtil;
 import com.example.WordGame.modules.auth.repository.PendingRegistrationRepository;
+import com.example.WordGame.modules.auth.DTO.RefreshTokenResponse;
 import com.example.WordGame.modules.roles.Role;
 import com.example.WordGame.modules.roles.user.Entities.User;
 import com.example.WordGame.modules.roles.user.repository.UserRepository;
@@ -22,6 +23,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
 import java.net.HttpURLConnection;
@@ -43,6 +46,7 @@ public class AuthService {
     private final AuthUtil authUtil;
     private final PasswordEncoder passwordEncoder;
     private final TokenBlacklistService tokenBlacklistService;
+    private final UserSessionService userSessionService;
     private final UserConsentService userConsentService;
     private final EmailService emailService;
 
@@ -55,14 +59,22 @@ public class AuthService {
     @Value("${app.auth.reset-url:http://localhost:8082/api/auth/reset-password?token=}")
     private String resetUrlTemplate;
 
+    @Transactional
     public LoginResponseDTO login(LoginRequest loginRequest) {
+        return login(loginRequest, null);
+    }
+
+    @Transactional
+    public LoginResponseDTO loginWithRole(LoginRequest loginRequest, Role requiredRole) {
+        return login(loginRequest, requiredRole);
+    }
+
+    private LoginResponseDTO login(LoginRequest loginRequest, Role requiredRole) {
         Authentication authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(loginRequest.getUsername(), loginRequest.getPassword())
         );
 
         User user = (User) authentication.getPrincipal();
-        String token = authUtil.generateToken(user);
-        String refreshToken = authUtil.generateRefreshToken(user);
 
         // Get user from authenticated principal (handles login-by-email)
         User userInDB = userRepository.findByUsername(user.getUsername())
@@ -72,6 +84,9 @@ public class AuthService {
                 && Boolean.FALSE.equals(userInDB.getEmailVerified())) {
             throw new ApiException("Please verify your email before logging in");
         }
+        if (requiredRole != null && (userInDB.getRoles() == null || !userInDB.getRoles().contains(requiredRole))) {
+            throw new ApiException("User does not have required role: " + requiredRole.name());
+        }
 
         // Update last login
         userInDB.setLastLogin(LocalDateTime.now());
@@ -79,10 +94,12 @@ public class AuthService {
         userInDB.setProvider(userInDB.getProvider() == null ? com.example.WordGame.modules.auth.Provider.EMAIL : userInDB.getProvider());
         userRepository.save(userInDB);
         maybeSendEmailVerification(userInDB);
+        IssuedAuthTokens tokens = userSessionService.createSession(
+            userInDB, loginRequest.getDeviceId(), loginRequest.getDeviceName());
 
         return LoginResponseDTO.builder()
-                .token(token)
-            .refreshToken(refreshToken)
+            .token(tokens.accessToken())
+            .refreshToken(tokens.refreshToken())
                 .id(user.getId())
                 .username(user.getUsername())
                 .email(user.getEmail())
@@ -97,37 +114,12 @@ public class AuthService {
                 .build();
     }
 
-    public LoginResponseDTO loginWithRole(LoginRequest loginRequest, Role requiredRole) {
-        LoginResponseDTO resp = login(loginRequest);
-        if (resp.getRoles() == null || !resp.getRoles().contains(requiredRole.name())) {
-            throw new ApiException("User does not have required role: " + requiredRole.name());
+    public RefreshTokenResponse refreshAccessToken(String refreshToken) {
+        if (refreshToken == null || refreshToken.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Refresh token is required.");
         }
-        return resp;
-    }
-
-    public LoginResponseDTO refreshAccessToken(String refreshToken) {
-        if (refreshToken == null || refreshToken.isBlank() || !authUtil.isRefreshToken(refreshToken)) {
-            throw new ApiException("Invalid refresh token");
-        }
-
-        String username = authUtil.getUsernameFromToken(refreshToken);
-        User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new ApiException("User not found"));
-        if (!Boolean.TRUE.equals(user.getIsActive())) {
-            throw new ApiException("User account is inactive");
-        }
-
-        return LoginResponseDTO.builder()
-                .token(authUtil.generateToken(user))
-                .refreshToken(authUtil.generateRefreshToken(user))
-                .id(user.getId())
-                .username(user.getUsername())
-                .email(user.getEmail())
-                .displayName(user.getDisplayName())
-                .roles(user.getRoles() == null ? java.util.List.of() : user.getRoles().stream().map(Enum::name).toList())
-                .provider(user.getProvider() == null ? "email" : user.getProvider().name().toLowerCase())
-                .emailVerified(Boolean.TRUE.equals(user.getEmailVerified()))
-                .build();
+        IssuedAuthTokens tokens = userSessionService.rotate(refreshToken);
+        return new RefreshTokenResponse(tokens.accessToken(), tokens.refreshToken());
     }
 
     public LoginResponseDTO register(RegisterRequest registerRequest) {
@@ -217,13 +209,21 @@ public class AuthService {
 
     public void logout(String bearerToken) {
         if (bearerToken == null) return;
-        String token = bearerToken.startsWith("Bearer ") ? bearerToken.split("Bearer ")[1] : bearerToken;
-        try {
-            java.util.Date exp = authUtil.getExpirationDateFromToken(token);
-            tokenBlacklistService.blacklistToken(token, exp);
-        } catch (Exception ignored) {}
+        String token = bearerToken.regionMatches(true, 0, "Bearer ", 0, 7)
+                ? bearerToken.substring(7).trim()
+                : bearerToken.trim();
+        if (token.isEmpty()) return;
+        Long userId = authUtil.getUserIdFromToken(token);
+        userSessionService.revoke(authUtil.getSessionIdFromToken(token), userId);
+        tokenBlacklistService.blacklistToken(token, authUtil.getExpirationDateFromToken(token));
     }
 
+    @Transactional
+    public int logoutAll(Long userId) {
+        return userSessionService.revokeAll(userId);
+    }
+
+    @Transactional
     public LoginResponseDTO oauthLogin(String providerStr, String token) {
         if (providerStr == null || token == null) throw new ApiException("Provider and token required");
         com.example.WordGame.modules.auth.Provider provider;
@@ -294,12 +294,11 @@ public class AuthService {
             userRepository.save(user);
         }
 
-        String jwt = authUtil.generateToken(user);
-        String refreshToken = authUtil.generateRefreshToken(user);
+        IssuedAuthTokens tokens = userSessionService.createSession(user, null, null);
 
         return LoginResponseDTO.builder()
-                .token(jwt)
-            .refreshToken(refreshToken)
+                .token(tokens.accessToken())
+            .refreshToken(tokens.refreshToken())
                 .id(user.getId())
                 .username(user.getUsername())
                 .email(user.getEmail())

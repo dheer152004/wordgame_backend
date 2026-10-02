@@ -1,8 +1,11 @@
 package com.example.WordGame.modules.auth.service;
 
 import com.example.WordGame.modules.auth.repository.AuthUtil;
+import com.example.WordGame.modules.auth.repository.UserSessionRepository;
+import com.example.WordGame.modules.auth.entity.UserSession;
 import com.example.WordGame.modules.roles.user.Entities.User;
 import com.example.WordGame.modules.roles.user.repository.UserRepository;
+import io.jsonwebtoken.JwtException;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -17,6 +20,9 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import org.springframework.web.servlet.HandlerExceptionResolver;
 
 import java.io.IOException;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.util.UUID;
 
 @Component
 @Slf4j
@@ -24,6 +30,7 @@ import java.io.IOException;
 public class JwtAuthFilter extends OncePerRequestFilter {
 
     private final UserRepository userRepository;
+    private final UserSessionRepository userSessionRepository;
     private final AuthUtil authUtil;
 
     private final HandlerExceptionResolver handlerExceptionResolver;
@@ -63,6 +70,18 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                 response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Refresh token cannot authenticate API requests");
                 return;
             }
+            Long tokenUserId = authUtil.getUserIdFromToken(token);
+            UUID sessionId = authUtil.getSessionIdFromToken(token);
+            if (sessionId == null) {
+                response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Session is no longer valid");
+                return;
+            }
+            UserSession session = userSessionRepository.findByIdAndUserId(sessionId, tokenUserId).orElse(null);
+            if (session == null || session.getRevokedAt() != null
+                    || !session.getExpiresAt().isAfter(LocalDateTime.now(ZoneOffset.UTC))) {
+                response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Session is no longer valid");
+                return;
+            }
             // Check blacklist
             TokenBlacklistService tokenBlacklistService = getBean(TokenBlacklistService.class, request);
             if (tokenBlacklistService != null && tokenBlacklistService.isBlacklisted(token)) {
@@ -73,7 +92,8 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             String username = authUtil.getUsernameFromToken(token);
             if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
                 User user = userRepository.findByUsername(username).orElse(null);
-                if (user == null) {
+                if (user == null || !user.getId().equals(tokenUserId)
+                    || !Boolean.TRUE.equals(user.getIsActive())) {
                     log.warn("User not found for token subject: {}", username);
                     response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "User not found for token subject");
                     return;
@@ -83,6 +103,9 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                 SecurityContextHolder.getContext().setAuthentication(usernamePasswordAuthenticationToken);
             }
             filterChain.doFilter(request, response);
+        } catch (JwtException | IllegalArgumentException ex) {
+            log.debug("Rejected malformed or expired access token");
+            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Invalid or expired access token");
         } catch (Exception ex) {
             handlerExceptionResolver.resolveException(request, response, null, ex);
         }

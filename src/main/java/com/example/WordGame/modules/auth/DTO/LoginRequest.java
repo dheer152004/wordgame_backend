@@ -14,4 +14,12 @@ public class LoginRequest {
 
     @NotBlank(message = "Password is required")
     private String password;
+
+    private String deviceId;
+    private String deviceName;
+
+    public LoginRequest(String username, String password) {
+        this.username = username;
+        this.password = password;
+    }
 }

@@ -2,6 +2,8 @@ package com.example.WordGame.modules.auth.controller;
 
 import com.example.WordGame.modules.auth.DTO.LoginRequest;
 import com.example.WordGame.modules.auth.DTO.LoginResponseDTO;
+import com.example.WordGame.modules.auth.DTO.RefreshTokenRequest;
+import com.example.WordGame.modules.auth.DTO.RefreshTokenResponse;
 import com.example.WordGame.modules.auth.DTO.RegisterRequest;
 import com.example.WordGame.modules.roles.Role;
 import com.example.WordGame.modules.auth.service.AuthService;
@@ -13,6 +15,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.Map;
 import jakarta.validation.Valid;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.access.prepost.PreAuthorize;
 import com.example.WordGame.modules.roles.user.Entities.User;
 import com.example.WordGame.modules.auth.DTO.OAuthRequest;
 
@@ -45,9 +48,8 @@ public class AuthController {
     }
 
     @PostMapping("/refresh")
-    public ResponseEntity<LoginResponseDTO> refresh(@RequestBody Map<String, String> request) {
-        String refreshToken = request != null ? request.get("refreshToken") : null;
-        return ResponseEntity.ok(authService.refreshAccessToken(refreshToken));
+    public ResponseEntity<RefreshTokenResponse> refresh(@Valid @RequestBody RefreshTokenRequest request) {
+        return ResponseEntity.ok(authService.refreshAccessToken(request.refreshToken()));
     }
 
     @PostMapping({"/register", "/register-user"})
@@ -63,12 +65,23 @@ public class AuthController {
     }
 
     @PostMapping("/logout")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<java.util.Map<String, Object>> logout(@RequestHeader(value = "Authorization", required = false) String authorization) {
         authService.logout(authorization);
         java.util.Map<String, Object> resp = new java.util.HashMap<>();
         resp.put("message", "Logged out");
         resp.put("success", true);
         return ResponseEntity.ok(resp);
+    }
+
+    @PostMapping("/logout-all")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<Map<String, Object>> logoutAll(@AuthenticationPrincipal User user) {
+        int revokedSessions = authService.logoutAll(user.getId());
+        return ResponseEntity.ok(Map.of(
+                "success", true,
+                "revokedSessions", revokedSessions,
+                "message", "All active sessions have been revoked"));
     }
 
     @GetMapping("/me")

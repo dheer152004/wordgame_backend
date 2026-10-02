@@ -80,7 +80,7 @@ public class SavedWordServiceImpl implements SavedWordService {
 
     @Override
     @Transactional
-    @CacheEvict(value = {"savedWords", "savedWordsCount"}, allEntries = true)
+    @CacheEvict(value = "savedWordsCount", key = "#username")
     public void deleteSavedWord(String username, Long wordId) {
         log.info("🗑️ Deleting saved word {} for user {}", wordId, username);
 

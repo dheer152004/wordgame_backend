@@ -39,6 +39,7 @@ class AuthServiceTest {
     private AuthUtil authUtil;
     private PasswordEncoder passwordEncoder;
     private TokenBlacklistService tokenBlacklistService;
+    private UserSessionService userSessionService;
     private UserConsentService userConsentService;
     private EmailService emailService;
     private AuthService authService;
@@ -50,6 +51,7 @@ class AuthServiceTest {
         authUtil = new AuthUtil();
         ReflectionTestUtils.setField(authUtil, "secretKey", "test-secret-key-123456789012345678901234567890");
         tokenBlacklistService = new TokenBlacklistService();
+        userSessionService = org.mockito.Mockito.mock(UserSessionService.class);
         passwordEncoder = new PasswordEncoder() {
             @Override
             public String encode(CharSequence rawPassword) {
@@ -146,6 +148,7 @@ class AuthServiceTest {
                 authUtil,
                 passwordEncoder,
                 tokenBlacklistService,
+                userSessionService,
                 userConsentService,
                 emailService
         );

@@ -44,6 +44,7 @@ public class WebSecurityConfig {
                         .requestMatchers("/api/v1/login").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/app/version").permitAll()
                         .requestMatchers("/api/v1/admin/app-versions/**").hasRole("ADMIN")
+                        .requestMatchers("/api/v1/admin/user-sessions/**").hasRole("ADMIN")
                         // allow public reads of genres and legal documents
                         .requestMatchers(HttpMethod.GET, "/api/genres/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/legal-documents").permitAll()

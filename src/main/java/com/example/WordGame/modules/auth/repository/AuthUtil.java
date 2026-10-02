@@ -11,7 +11,8 @@ import com.example.WordGame.modules.roles.user.Entities.User;
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
-import org.springframework.beans.factory.annotation.Value;
+import java.util.Objects;
+import java.util.UUID;
 
 
 @Component
@@ -30,24 +31,31 @@ public class AuthUtil {
         return Keys.hmacShaKeyFor(secretKey.getBytes(StandardCharsets.UTF_8));
     }
 
-    public String generateToken(User user) {
-        return Jwts.builder()
+    public String generateToken(User user, UUID sessionId) {
+        Objects.requireNonNull(sessionId, "sessionId");
+        var builder = Jwts.builder()
                 .setSubject(user.getUsername())
                 .claim("userId", user.getId().toString())
                 .claim("type", "access")
+                .claim("sessionId", sessionId.toString())
                 .setIssuedAt(new Date())
-                .setExpiration(new Date(System.currentTimeMillis() + accessExpirationMs))
+                .setExpiration(new Date(System.currentTimeMillis() + accessExpirationMs));
+        return builder
                 .signWith(getSecretKey())
                 .compact();
     }
 
-    public String generateRefreshToken(User user) {
-        return Jwts.builder()
+    public String generateRefreshToken(User user, UUID sessionId) {
+        Objects.requireNonNull(sessionId, "sessionId");
+        var builder = Jwts.builder()
                 .setSubject(user.getUsername())
                 .claim("userId", user.getId().toString())
                 .claim("type", "refresh")
+                .claim("sessionId", sessionId.toString())
+                .setId(UUID.randomUUID().toString())
                 .setIssuedAt(new Date())
-                .setExpiration(new Date(System.currentTimeMillis() + refreshExpirationMs))
+                .setExpiration(new Date(System.currentTimeMillis() + refreshExpirationMs));
+        return builder
                 .signWith(getSecretKey())
                 .compact();
     }
@@ -57,8 +65,7 @@ public class AuthUtil {
     }
 
     public boolean isAccessToken(String token) {
-        String type = getTokenType(token);
-        return type == null || "access".equals(type);
+        return "access".equals(getTokenType(token));
     }
 
     private String getTokenType(String token) {
@@ -69,6 +76,7 @@ public class AuthUtil {
                 .getBody();
         return claims.get("type", String.class);
     }
+
     public String getUsernameFromToken(String token) {
 
         Claims claims = Jwts.parserBuilder()
@@ -87,5 +95,23 @@ public class AuthUtil {
                 .parseClaimsJws(token)
                 .getBody();
         return claims.getExpiration();
+    }
+
+    public Long getUserIdFromToken(String token) {
+        Claims claims = parseClaims(token);
+        return Long.valueOf(claims.get("userId", String.class));
+    }
+
+    public UUID getSessionIdFromToken(String token) {
+        String sessionId = parseClaims(token).get("sessionId", String.class);
+        return sessionId == null ? null : UUID.fromString(sessionId);
+    }
+
+    public Claims parseClaims(String token) {
+        return Jwts.parserBuilder()
+                .setSigningKey(getSecretKey())
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
     }
 }
