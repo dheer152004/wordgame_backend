@@ -14,9 +14,12 @@ import com.example.WordGame.modules.roles.user.UserProfileDTO.ProfileResponseDTO
 import com.example.WordGame.modules.roles.user.UserProfileDTO.ProfileUpdateRequestDTO;
 import com.example.WordGame.modules.roles.user.UserProfileDTO.StreakResponseDTO;
 import com.example.WordGame.modules.roles.user.UserProfileDTO.DeleteAccountRequestDTO;
+import com.example.WordGame.modules.streak.dto.StreakCalendarResponseDTO;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.time.YearMonth;
+import java.time.format.DateTimeParseException;
 
 @RestController
 @RequestMapping("/api/user/profile")
@@ -32,9 +35,10 @@ public class ProfileController {
      */
     @GetMapping
     public ResponseEntity<ProfileResponseDTO> getProfile(
-            @AuthenticationPrincipal UserDetails userDetails) {
+            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestHeader(value = "X-User-Timezone-Offset-Minutes", required = false) String timezoneOffsetMinutes) {
         String userEmail = userDetails.getUsername();
-        ProfileResponseDTO profile = profileService.getProfile(userEmail);
+        ProfileResponseDTO profile = profileService.getProfile(userEmail, timezoneOffsetMinutes);
         return ResponseEntity.ok(profile);
     }
 
@@ -44,9 +48,28 @@ public class ProfileController {
      */
     @GetMapping("/streak")
     public ResponseEntity<StreakResponseDTO> getStreak(
-            @AuthenticationPrincipal UserDetails userDetails) {
+            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestHeader(value = "X-User-Timezone-Offset-Minutes", required = false) String timezoneOffsetMinutes) {
         String userEmail = userDetails.getUsername();
-        return ResponseEntity.ok(profileService.getStreakInfo(userEmail));
+        return ResponseEntity.ok(profileService.getStreakInfo(userEmail, timezoneOffsetMinutes));
+    }
+
+    @GetMapping("/streak/calendar")
+    public ResponseEntity<StreakCalendarResponseDTO> getStreakCalendar(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestParam(required = false) String month,
+            @RequestHeader(value = "X-User-Timezone-Offset-Minutes", required = false)
+            String timezoneOffsetMinutes) {
+        YearMonth requestedMonth;
+        try {
+            requestedMonth = month == null || month.isBlank()
+                    ? YearMonth.now()
+                    : YearMonth.parse(month);
+        } catch (DateTimeParseException exception) {
+            throw new com.example.WordGame.exceptions.ApiException("Month must use YYYY-MM format");
+        }
+        return ResponseEntity.ok(profileService.getStreakCalendar(
+                userDetails.getUsername(), requestedMonth, timezoneOffsetMinutes));
     }
 
     /**

@@ -12,6 +12,8 @@ import com.example.WordGame.modules.roles.user.UserProfileDTO.ProfileResponseDTO
 import com.example.WordGame.modules.roles.user.UserProfileDTO.ProfileUpdateRequestDTO;
 import com.example.WordGame.modules.roles.user.UserProfileDTO.StreakResponseDTO;
 import com.example.WordGame.modules.roles.user.repository.UserRepository;
+import com.example.WordGame.modules.streak.service.StreakService;
+import com.example.WordGame.modules.streak.dto.StreakCalendarResponseDTO;
 import com.example.WordGame.modules.roles.admin.Entities.DeletedUser;
 import com.example.WordGame.modules.roles.admin.Repositories.DeletedUserRepository;
 import com.example.WordGame.modules.roles.repository.LeaderboardCacheRepository;
@@ -27,6 +29,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
@@ -46,9 +49,15 @@ public class ProfileServiceImpl implements ProfileService {
     private final UserConsentRepository userConsentRepository;
     private final LeaderboardCacheRepository leaderboardCacheRepository;
     private final DeletedUserRepository deletedUserRepository;
+    private final StreakService streakService;
 
     @Override
     public ProfileResponseDTO getProfile(String userEmail) {
+        return getProfile(userEmail, null);
+    }
+
+    @Override
+    public ProfileResponseDTO getProfile(String userEmail, String timezoneOffsetMinutes) {
         log.info("📋 Fetching profile for user: {}", userEmail);
 
         User user = getUserByEmail(userEmail);
@@ -100,6 +109,9 @@ public class ProfileServiceImpl implements ProfileService {
                 .lastActive(user.getLastActive())
                 .createdAt(user.getCreatedAt())
                 .lastQuizDate(user.getLastQuizDate())
+                .lastActivityDate(user.getLastQuizDate())
+                .streakUpdatedToday(streakService.isActivityToday(
+                    user.getLastQuizDate(), timezoneOffsetMinutes))
                 // Badges
                 .recentBadges(getUserBadges(user, totalSavedWords, totalQuizzes))
                 .build();
@@ -107,6 +119,11 @@ public class ProfileServiceImpl implements ProfileService {
 
     @Override
     public StreakResponseDTO getStreakInfo(String userEmail) {
+        return getStreakInfo(userEmail, null);
+    }
+
+    @Override
+    public StreakResponseDTO getStreakInfo(String userEmail, String timezoneOffsetMinutes) {
         log.info("🔥 Fetching streak info for user: {}", userEmail);
 
         User user = getUserByEmail(userEmail);
@@ -114,7 +131,17 @@ public class ProfileServiceImpl implements ProfileService {
         return StreakResponseDTO.builder()
                 .currentStreak(user.getCurrentStreak())
                 .longestStreak(user.getLongestStreak())
+                .lastActivityDate(user.getLastQuizDate())
+                .streakUpdatedToday(streakService.isActivityToday(
+                    user.getLastQuizDate(), timezoneOffsetMinutes))
                 .build();
+    }
+
+    @Override
+    public StreakCalendarResponseDTO getStreakCalendar(
+            String userEmail, YearMonth month, String timezoneOffsetMinutes) {
+        User user = getUserByEmail(userEmail);
+        return streakService.getCalendar(user, month, timezoneOffsetMinutes);
     }
 
     @Override

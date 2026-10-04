@@ -42,6 +42,8 @@ public class ProfileResponseDTO {
     private LocalDateTime lastActive;
     private LocalDateTime createdAt;
     private LocalDate lastQuizDate;
+    private LocalDate lastActivityDate;
+    private Boolean streakUpdatedToday;
 
     // Badges/Achievements (Optional)
     private List<String> recentBadges;

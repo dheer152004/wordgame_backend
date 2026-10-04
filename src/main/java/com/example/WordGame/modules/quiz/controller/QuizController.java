@@ -48,9 +48,10 @@ public class QuizController {
      */
     @GetMapping("/today/image")
     public ResponseEntity<List<QuizQuestionResponseDTO>> getTodayImageQuiz(
-            @AuthenticationPrincipal UserDetails userDetails) {
+            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestHeader(value = "X-User-Timezone-Offset-Minutes", required = false) String timezoneOffsetMinutes) {
         String username = userDetails.getUsername();
-        return ResponseEntity.ok(quizService.getTodayImageQuiz(username));
+        return ResponseEntity.ok(quizService.getTodayImageQuiz(username, timezoneOffsetMinutes));
     }
 
     /**
@@ -60,9 +61,10 @@ public class QuizController {
     @PostMapping("/today/image/submit")
     public ResponseEntity<QuizResultResponseDTO> submitTodayImageQuiz(
             @AuthenticationPrincipal UserDetails userDetails,
-            @Valid @RequestBody ImageQuizSubmissionRequestDTO submission) {
+            @Valid @RequestBody ImageQuizSubmissionRequestDTO submission,
+            @RequestHeader(value = "X-User-Timezone-Offset-Minutes", required = false) String timezoneOffsetMinutes) {
         String username = userDetails.getUsername();
-        return ResponseEntity.ok(quizService.submitImageQuiz(username, submission));
+        return ResponseEntity.ok(quizService.submitImageQuiz(username, submission, timezoneOffsetMinutes));
     }
 
     /**
@@ -72,9 +74,10 @@ public class QuizController {
     @PostMapping("/submit")
     public ResponseEntity<QuizResultResponseDTO> submitQuiz(
             @AuthenticationPrincipal UserDetails userDetails,
-            @Valid @RequestBody QuizSubmissionRequestDTO submission) {
+            @Valid @RequestBody QuizSubmissionRequestDTO submission,
+            @RequestHeader(value = "X-User-Timezone-Offset-Minutes", required = false) String timezoneOffsetMinutes) {
         String username = userDetails.getUsername();
-        QuizResultResponseDTO result = quizService.submitQuiz(username, submission);
+        QuizResultResponseDTO result = quizService.submitQuiz(username, submission, timezoneOffsetMinutes);
         return ResponseEntity.ok(result);
     }
 
@@ -126,9 +129,10 @@ public class QuizController {
      */
     @GetMapping("/stats")
     public ResponseEntity<Object> getQuizStats(
-            @AuthenticationPrincipal UserDetails userDetails) {
+            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestHeader(value = "X-User-Timezone-Offset-Minutes", required = false) String timezoneOffsetMinutes) {
         String username = userDetails.getUsername();
-        Object stats = quizService.getQuizStats(username);
+        Object stats = quizService.getQuizStats(username, timezoneOffsetMinutes);
         return ResponseEntity.ok(stats);
     }
 

@@ -6,6 +6,7 @@ import com.example.WordGame.modules.roles.user.Entities.User;
 import com.example.WordGame.modules.roles.user.UserProfileDTO.StreakResponseDTO;
 import com.example.WordGame.modules.roles.repository.LeaderboardCacheRepository;
 import com.example.WordGame.modules.roles.user.repository.UserRepository;
+import com.example.WordGame.modules.streak.service.StreakService;
 import com.example.WordGame.modules.roles.admin.Repositories.DeletedUserRepository;
 import com.example.WordGame.modules.savedwords.repository.UserSavedWordRepository;
 import com.example.WordGame.modules.userConsent.repository.UserConsentRepository;
@@ -51,6 +52,9 @@ class ProfileServiceImplTest {
 
     @Mock
     private DeletedUserRepository deletedUserRepository;
+
+    @Mock
+    private StreakService streakService;
 
     @InjectMocks
     private ProfileServiceImpl profileService;

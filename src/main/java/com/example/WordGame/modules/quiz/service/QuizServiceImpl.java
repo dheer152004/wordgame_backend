@@ -17,6 +17,7 @@ import com.example.WordGame.modules.quiz.repository.UserAnswerRepository;
 import com.example.WordGame.modules.roles.UserAnswer;
 import com.example.WordGame.modules.roles.user.Entities.User;
 import com.example.WordGame.modules.roles.user.repository.UserRepository;
+import com.example.WordGame.modules.streak.service.StreakService;
 import com.example.WordGame.modules.words.Entities.Word;
 import com.example.WordGame.modules.words.QuizMode;
 import com.example.WordGame.modules.words.repository.WordRepo;
@@ -44,6 +45,7 @@ public class QuizServiceImpl implements QuizService {
     private final QuizQuestionRepository quizQuestionRepository;
     private final QuizAttemptRepository quizAttemptRepository;
     private final UserAnswerRepository userAnswerRepository;
+    private final StreakService streakService;
 
     private static final int XP_PER_QUESTION = 10;
     private static final int BONUS_XP_FOR_PERFECT = 50;
@@ -84,8 +86,14 @@ public class QuizServiceImpl implements QuizService {
 
     @Override
     public List<QuizQuestionResponseDTO> getTodayImageQuiz(String userEmail) {
+        return getTodayImageQuiz(userEmail, null);
+    }
+
+    @Override
+    public List<QuizQuestionResponseDTO> getTodayImageQuiz(String userEmail, String timezoneOffsetMinutes) {
         User user = getUserByEmail(userEmail);
-        if (LocalDate.now().equals(user.getLastImageQuizDate())) {
+        LocalDate activityDate = streakService.activityDate(timezoneOffsetMinutes);
+        if (activityDate.equals(user.getLastImageQuizDate())) {
             throw new ApiException("You have already completed today's image quiz!");
         }
 
@@ -109,8 +117,17 @@ public class QuizServiceImpl implements QuizService {
     @Override
     @Transactional
     public QuizResultResponseDTO submitImageQuiz(String userEmail, ImageQuizSubmissionRequestDTO submission) {
-        User user = getUserByEmail(userEmail);
-        if (LocalDate.now().equals(user.getLastImageQuizDate())) {
+        return submitImageQuiz(userEmail, submission, null);
+    }
+
+    @Override
+    @Transactional
+    public QuizResultResponseDTO submitImageQuiz(
+            String userEmail, ImageQuizSubmissionRequestDTO submission, String timezoneOffsetMinutes) {
+        User user = userRepository.findByUsernameForUpdate(userEmail)
+                .orElseThrow(() -> new ApiException("User not found with email: " + userEmail));
+        LocalDate activityDate = streakService.activityDate(timezoneOffsetMinutes);
+        if (activityDate.equals(user.getLastImageQuizDate())) {
             throw new ApiException("You have already completed today's image quiz!");
         }
         if (submission.getAnswers() == null || submission.getAnswers().size() != QUIZ_SIZE) {
@@ -156,14 +173,10 @@ public class QuizServiceImpl implements QuizService {
         int xpEarned = totalScore / 10;
         user.setTotalXp(user.getTotalXp() + xpEarned);
         user.setLevel(calculateLevel(user.getTotalXp()));
-        int updatedStreak = updateStreakFromDate(user, user.getLastImageQuizDate());
-        user.setCurrentStreak(updatedStreak);
-        if (updatedStreak > user.getLongestStreak()) {
-            user.setLongestStreak(updatedStreak);
-        }
+        StreakService.StreakUpdate streakUpdate = streakService.recordQuizCompletion(user, activityDate);
+        int updatedStreak = streakUpdate.currentStreak();
         user.setLastActive(LocalDateTime.now());
-        user.setLastQuizDate(LocalDate.now());
-        user.setLastImageQuizDate(LocalDate.now());
+        user.setLastImageQuizDate(activityDate);
         userRepository.save(user);
 
         return QuizResultResponseDTO.builder()
@@ -174,6 +187,11 @@ public class QuizServiceImpl implements QuizService {
                 .newTotalXp(user.getTotalXp())
                 .newLevel(user.getLevel())
                 .currentStreak(updatedStreak)
+                .longestStreak(streakUpdate.longestStreak())
+                .lastActivityDate(streakUpdate.lastActivityDate())
+                .streakUpdatedToday(streakUpdate.streakUpdatedToday())
+                .milestoneReached(streakUpdate.milestoneReached())
+                .streakMilestone(streakUpdate.streakMilestone())
                 .message(getResultMessage(percentage))
                 .details(results)
                 .build();
@@ -182,7 +200,15 @@ public class QuizServiceImpl implements QuizService {
     @Override
     @Transactional
     public QuizResultResponseDTO submitQuiz(String userEmail, QuizSubmissionRequestDTO submission) {
-        User user = getUserByEmail(userEmail);
+        return submitQuiz(userEmail, submission, null);
+    }
+
+    @Override
+    @Transactional
+    public QuizResultResponseDTO submitQuiz(
+            String userEmail, QuizSubmissionRequestDTO submission, String timezoneOffsetMinutes) {
+        User user = userRepository.findByUsernameForUpdate(userEmail)
+                .orElseThrow(() -> new ApiException("User not found with email: " + userEmail));
 
         // Check if already completed today
         if (quizAttemptRepository.hasCompletedTodayQuiz(user)) {
@@ -279,11 +305,9 @@ public class QuizServiceImpl implements QuizService {
         user.setTotalXp(newTotalXp);
 
         // Update streak
-        int updatedStreak = updateStreak(user);
-        user.setCurrentStreak(updatedStreak);
-        if (updatedStreak > user.getLongestStreak()) {
-            user.setLongestStreak(updatedStreak);
-        }
+        LocalDate activityDate = streakService.activityDate(timezoneOffsetMinutes);
+        StreakService.StreakUpdate streakUpdate = streakService.recordQuizCompletion(user, activityDate);
+        int updatedStreak = streakUpdate.currentStreak();
 
         // Update level
         int newLevel = calculateLevel(newTotalXp);
@@ -296,7 +320,6 @@ public class QuizServiceImpl implements QuizService {
         }
 
         user.setLastActive(LocalDateTime.now());
-        user.setLastQuizDate(LocalDate.now());
         userRepository.save(user);
 
         // Build and return final response payload
@@ -308,6 +331,11 @@ public class QuizServiceImpl implements QuizService {
                 .newTotalXp(user.getTotalXp())
                 .newLevel(user.getLevel())
                 .currentStreak(user.getCurrentStreak())
+                .longestStreak(streakUpdate.longestStreak())
+                .lastActivityDate(streakUpdate.lastActivityDate())
+                .streakUpdatedToday(streakUpdate.streakUpdatedToday())
+                .milestoneReached(streakUpdate.milestoneReached())
+                .streakMilestone(streakUpdate.streakMilestone())
                 .message(getResultMessage(percentage))
                 .details(results)
                 .build();
@@ -337,6 +365,11 @@ public class QuizServiceImpl implements QuizService {
 
     @Override
     public Object getQuizStats(String userEmail) {
+        return getQuizStats(userEmail, null);
+    }
+
+    @Override
+    public Object getQuizStats(String userEmail, String timezoneOffsetMinutes) {
         User user = getUserByEmail(userEmail);
 
         Long totalQuizzes = quizAttemptRepository.countByUser(user);
@@ -353,6 +386,9 @@ public class QuizServiceImpl implements QuizService {
         stats.put("totalXpEarned", totalXp != null ? totalXp : 0);
         stats.put("currentStreak", user.getCurrentStreak());
         stats.put("longestStreak", user.getLongestStreak());
+        stats.put("lastActivityDate", user.getLastQuizDate());
+        stats.put("streakUpdatedToday", streakService.isActivityToday(
+            user.getLastQuizDate(), timezoneOffsetMinutes));
         stats.put("level", user.getLevel());
         stats.put("totalXp", user.getTotalXp());
         stats.put("xpToNextLevel", xpToNextLevel);
@@ -576,19 +612,6 @@ public class QuizServiceImpl implements QuizService {
         return submission.getAnswers().stream()
                 .mapToInt(QuizSubmissionRequestDTO.AnswerDTO::getTimeTakenMs)
                 .sum() / 1000;
-    }
-
-    int updateStreak(User user) {
-        return updateStreakFromDate(user, user.getLastQuizDate());
-    }
-
-    private int updateStreakFromDate(User user, LocalDate previousQuizDate) {
-        LocalDate today = LocalDate.now();
-
-        if (previousQuizDate == null) return Math.max(1, user.getCurrentStreak());
-        if (previousQuizDate.equals(today.minusDays(1))) return user.getCurrentStreak() + 1;
-        if (previousQuizDate.equals(today)) return Math.max(1, user.getCurrentStreak());
-        return 1;
     }
 
     int calculateLevel(int totalXp) {

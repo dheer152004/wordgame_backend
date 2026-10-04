@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 
 @Data
@@ -20,6 +21,11 @@ public class QuizResultResponseDTO {
     private Integer newTotalXp;
     private Integer newLevel;
     private Integer currentStreak;
+    private Integer longestStreak;
+    private LocalDate lastActivityDate;
+    private Boolean streakUpdatedToday;
+    private Boolean milestoneReached;
+    private Integer streakMilestone;
     private String message;
     private List<QuestionResultDTO> details;
 

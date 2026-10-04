@@ -15,15 +15,25 @@ public interface QuizService {
 
     List<QuizQuestionResponseDTO> getTodayQuiz(String userEmail);
 
-    List<QuizQuestionResponseDTO> getTodayImageQuiz(String userEmail);
+            List<QuizQuestionResponseDTO> getTodayImageQuiz(String userEmail);
 
-    QuizResultResponseDTO submitImageQuiz(String userEmail, ImageQuizSubmissionRequestDTO submission);
+            List<QuizQuestionResponseDTO> getTodayImageQuiz(String userEmail, String timezoneOffsetMinutes);
 
-    QuizResultResponseDTO submitQuiz(String userEmail, QuizSubmissionRequestDTO submission);
+            QuizResultResponseDTO submitImageQuiz(String userEmail, ImageQuizSubmissionRequestDTO submission);
+
+        QuizResultResponseDTO submitImageQuiz(
+            String userEmail, ImageQuizSubmissionRequestDTO submission, String timezoneOffsetMinutes);
+
+            QuizResultResponseDTO submitQuiz(String userEmail, QuizSubmissionRequestDTO submission);
+
+        QuizResultResponseDTO submitQuiz(
+            String userEmail, QuizSubmissionRequestDTO submission, String timezoneOffsetMinutes);
 
     Page<QuizHistoryDTO> getQuizHistory(String userEmail, Pageable pageable);
 
     boolean hasCompletedTodayQuiz(String userEmail);
 
     Object getQuizStats(String userEmail);
+
+    Object getQuizStats(String userEmail, String timezoneOffsetMinutes);
 }

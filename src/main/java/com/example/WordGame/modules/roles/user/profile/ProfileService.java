@@ -7,11 +7,15 @@ import com.example.WordGame.modules.roles.user.UserProfileDTO.DateOfBirthUpdateR
 import com.example.WordGame.modules.roles.user.UserProfileDTO.ProfileResponseDTO;
 import com.example.WordGame.modules.roles.user.UserProfileDTO.ProfileUpdateRequestDTO;
 import com.example.WordGame.modules.roles.user.UserProfileDTO.StreakResponseDTO;
+import com.example.WordGame.modules.streak.dto.StreakCalendarResponseDTO;
+import java.time.YearMonth;
 
 public interface ProfileService {
 
     // Get user profile
     ProfileResponseDTO getProfile(String userEmail);
+
+    ProfileResponseDTO getProfile(String userEmail, String timezoneOffsetMinutes);
 
     // Update profile (text fields only)
     ProfileResponseDTO updateProfile(String userEmail, ProfileUpdateRequestDTO request);
@@ -34,4 +38,9 @@ public interface ProfileService {
 
     // Get streak summary
     StreakResponseDTO getStreakInfo(String userEmail);
+
+    StreakResponseDTO getStreakInfo(String userEmail, String timezoneOffsetMinutes);
+
+    StreakCalendarResponseDTO getStreakCalendar(
+            String userEmail, YearMonth month, String timezoneOffsetMinutes);
 }
