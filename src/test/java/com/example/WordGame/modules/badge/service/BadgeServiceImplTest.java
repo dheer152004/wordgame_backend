@@ -6,6 +6,8 @@ import com.example.WordGame.modules.badge.BadgeDTO.BadgeResponseDTO;
 import com.example.WordGame.modules.badge.enums.BadgeRarity;
 import com.example.WordGame.modules.badge.enums.BadgeType;
 import com.example.WordGame.modules.badge.repository.BadgeRepository;
+import com.example.WordGame.modules.genre.Entities.Genre;
+import com.example.WordGame.modules.genre.repository.GenreRepo;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -16,6 +18,7 @@ import java.time.LocalDateTime;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -23,6 +26,9 @@ class BadgeServiceImplTest {
 
     @Mock
     private BadgeRepository badgeRepository;
+
+    @Mock
+    private GenreRepo genreRepository;
 
     @InjectMocks
     private BadgeServiceImpl badgeService;
@@ -61,5 +67,48 @@ class BadgeServiceImplTest {
         assertEquals(true, response.getIsHidden());
         assertEquals(true, response.getIsActive());
         assertEquals(1, response.getDisplayOrder());
+    }
+
+    @Test
+    void createBadgeSupportsEveryBadgeType() {
+        for (BadgeType badgeType : BadgeType.values()) {
+            BadgeRequestDTO request = new BadgeRequestDTO();
+            request.setBadgeName("Type " + badgeType);
+            request.setDescription("Badge type coverage");
+            request.setBadgeType(badgeType);
+            request.setRarity(BadgeRarity.RARE);
+            request.setDisplayOrder(1);
+
+            when(badgeRepository.save(any(Badge.class)))
+                    .thenAnswer(invocation -> invocation.getArgument(0));
+
+            BadgeResponseDTO response = badgeService.createBadge(request);
+
+            assertEquals(badgeType, response.getBadgeType());
+        }
+    }
+
+    @Test
+    void createBadgeCanBeAssignedToExistingGenre() {
+        Genre genre = new Genre();
+        genre.setName("Test1");
+        genre.setId(42L);
+        BadgeRequestDTO request = new BadgeRequestDTO();
+        request.setBadgeName("Test1 Badge");
+        request.setDescription("Genre-specific badge");
+        request.setBadgeType(BadgeType.GENRE);
+        request.setRarity(BadgeRarity.RARE);
+        request.setDisplayOrder(1);
+        request.setGenreId(genre.getId());
+
+        when(genreRepository.findById(genre.getId())).thenReturn(java.util.Optional.of(genre));
+        when(badgeRepository.save(any(Badge.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        BadgeResponseDTO response = badgeService.createBadge(request);
+
+        assertEquals(genre.getId(), response.getGenreId());
+        assertEquals("Test1", response.getGenreName());
+        verify(genreRepository).findById(genre.getId());
     }
 }

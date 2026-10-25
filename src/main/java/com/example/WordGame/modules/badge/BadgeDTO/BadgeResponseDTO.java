@@ -19,6 +19,8 @@ public class BadgeResponseDTO {
     private Boolean isHidden;
     private Boolean isActive;
     private Integer displayOrder;
+    private Long genreId;
+    private String genreName;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

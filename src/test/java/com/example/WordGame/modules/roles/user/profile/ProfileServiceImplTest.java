@@ -1,6 +1,7 @@
 package com.example.WordGame.modules.roles.user.profile;
 
 import com.example.WordGame.Service.ImageStorageService;
+import com.example.WordGame.modules.auth.repository.UserSessionRepository;
 import com.example.WordGame.modules.quiz.repository.QuizAttemptRepository;
 import com.example.WordGame.modules.roles.user.Entities.User;
 import com.example.WordGame.modules.roles.user.UserProfileDTO.StreakResponseDTO;
@@ -21,6 +22,7 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -28,6 +30,9 @@ class ProfileServiceImplTest {
 
     @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private UserSessionRepository userSessionRepository;
 
     @Mock
     private UserProfileRepository userProfileRepository;
@@ -77,12 +82,16 @@ class ProfileServiceImplTest {
     @Test
     void deleteProfileRemovesUserOwnedRecordsButDoesNotDeleteImages() {
         User user = new User();
+        user.setId(4L);
         when(userRepository.findByUsername("test@example.com")).thenReturn(Optional.of(user));
 
         profileService.deleteProfile("test@example.com");
 
         verify(userConsentRepository).deleteByUser(user);
         verify(leaderboardCacheRepository).deleteByUser(user);
-        verify(userRepository).delete(user);
+
+        var deletionOrder = inOrder(userSessionRepository, userRepository);
+        deletionOrder.verify(userSessionRepository).deleteAllForUser(4L);
+        deletionOrder.verify(userRepository).delete(user);
     }
 }

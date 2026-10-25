@@ -4,6 +4,7 @@ package com.example.WordGame.modules.roles.user.profile;
 import com.example.WordGame.Service.ImageStorageService;
 import com.example.WordGame.exceptions.ApiException;
 import com.example.WordGame.modules.quiz.repository.QuizAttemptRepository;
+import com.example.WordGame.modules.auth.repository.UserSessionRepository;
 import com.example.WordGame.modules.roles.user.Entities.User;
 import com.example.WordGame.modules.roles.user.Entities.UserProfile;
 import com.example.WordGame.modules.roles.user.UserProfileDTO.ChangePasswordRequestDTO;
@@ -41,6 +42,7 @@ import java.util.stream.Collectors;
 public class ProfileServiceImpl implements ProfileService {
 
     private final UserRepository userRepository;
+    private final UserSessionRepository userSessionRepository;
     private final UserProfileRepository userProfileRepository;
     private final UserSavedWordRepository savedWordRepository;
     private final QuizAttemptRepository quizAttemptRepository;
@@ -341,6 +343,7 @@ public class ProfileServiceImpl implements ProfileService {
         // all image files are intentionally left untouched.
         userConsentRepository.deleteByUser(user);
         leaderboardCacheRepository.deleteByUser(user);
+        userSessionRepository.deleteAllForUser(user.getId());
         userRepository.delete(user);
 
         log.info("✅ Profile deleted successfully for user: {}", userEmail);

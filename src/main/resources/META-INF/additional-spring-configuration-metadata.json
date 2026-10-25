@@ -1,0 +1,9 @@
+{
+  "properties": [
+    {
+      "name": "app.admin.create-secret",
+      "type": "java.lang.String",
+      "description": "Secret required for admin creation operations."
+    }
+  ]
+}

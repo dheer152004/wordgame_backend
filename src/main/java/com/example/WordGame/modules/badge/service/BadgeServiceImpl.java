@@ -7,6 +7,8 @@ import com.example.WordGame.modules.badge.BadgeDTO.BadgeResponseDTO;
 import com.example.WordGame.modules.badge.BadgeDTO.BadgeUpdateDTO;
 import com.example.WordGame.modules.badge.Entities.Badge;
 import com.example.WordGame.modules.badge.repository.BadgeRepository;
+import com.example.WordGame.modules.genre.Entities.Genre;
+import com.example.WordGame.modules.genre.repository.GenreRepo;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -25,10 +27,12 @@ public class BadgeServiceImpl implements BadgeService {
 
     private final BadgeRepository badgeRepository;
     private final ImageStorageService imageUploadService;
+    private final GenreRepo genreRepository;
     private static final int DISPLAY_ORDER_INITIAL = 10000;
     private static final int DISPLAY_ORDER_INCREMENT = 10000;
 
     @Override
+    @Transactional(readOnly = true)
     public List<BadgeResponseDTO> getAllBadges() {
         return badgeRepository.findAll().stream()
                 .map(this::toResponseDto)
@@ -36,6 +40,7 @@ public class BadgeServiceImpl implements BadgeService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public BadgeResponseDTO getBadgeById(Long id) {
         Badge badge = badgeRepository.findById(id)
                 .orElseThrow(() -> new ApiException("Badge not found with id: " + id));
@@ -67,6 +72,7 @@ public class BadgeServiceImpl implements BadgeService {
                     : DISPLAY_ORDER_INITIAL;
             badge.setDisplayOrder(nextOrder);
         }
+        badge.setGenre(resolveGenre(request.getGenreId()));
 
         return toResponseDto(badgeRepository.save(badge));
     }
@@ -102,6 +108,9 @@ public class BadgeServiceImpl implements BadgeService {
         }
         if (request.getDisplayOrder() != null) {
             badge.setDisplayOrder(request.getDisplayOrder());
+        }
+        if (request.getGenreId() != null) {
+            badge.setGenre(resolveGenre(request.getGenreId()));
         }
 
         return toResponseDto(badgeRepository.save(badge));
@@ -156,6 +165,14 @@ public class BadgeServiceImpl implements BadgeService {
         return iconUrl;
     }
 
+    private Genre resolveGenre(Long genreId) {
+        if (genreId == null) {
+            return null;
+        }
+        return genreRepository.findById(genreId)
+                .orElseThrow(() -> new ApiException("Genre not found with id: " + genreId));
+    }
+
     private BadgeResponseDTO toResponseDto(Badge badge) {
         BadgeResponseDTO response = new BadgeResponseDTO();
         response.setBadgeId(badge.getId());
@@ -167,6 +184,8 @@ public class BadgeServiceImpl implements BadgeService {
         response.setIsHidden(badge.getHidden());
         response.setIsActive(badge.getActive());
         response.setDisplayOrder(badge.getDisplayOrder());
+        response.setGenreId(badge.getGenre() == null ? null : badge.getGenre().getId());
+        response.setGenreName(badge.getGenre() == null ? null : badge.getGenre().getName());
         response.setCreatedAt(badge.getCreatedAt());
         response.setUpdatedAt(badge.getUpdatedAt());
         return response;

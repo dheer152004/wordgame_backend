@@ -2,6 +2,7 @@ package com.example.WordGame.modules.badge.Entities;
 
 import com.example.WordGame.modules.badge.enums.BadgeRarity;
 import com.example.WordGame.modules.badge.enums.BadgeType;
+import com.example.WordGame.modules.genre.Entities.Genre;
 import jakarta.persistence.*;
 import lombok.Data;
 
@@ -42,6 +43,10 @@ public class Badge {
 
     @Column(name = "display_order")
     private Integer displayOrder = 0;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "genre_id")
+    private Genre genre;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

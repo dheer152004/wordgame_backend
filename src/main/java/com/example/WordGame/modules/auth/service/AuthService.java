@@ -53,10 +53,12 @@ public class AuthService {
     @Value("${app.admin.create-secret:}")
     private String adminCreateSecret;
 
-    @Value("${app.auth.verify-url:http://localhost:8082/api/auth/verify-email?token=}")
+    // @Value("${app.auth.verify-url:https://app.dummywebsite.com/api/auth/verify-email?token=}")
+    @Value("${app.auth.verify-url:}")
     private String verificationUrlTemplate;
 
-    @Value("${app.auth.reset-url:http://localhost:8082/api/auth/reset-password?token=}")
+    // @Value("${app.auth.reset-url:https://app.dummywebsite.com/api/auth/reset-password?token=}")
+    @Value("${app.auth.reset-url:}")
     private String resetUrlTemplate;
 
     @Transactional

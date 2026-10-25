@@ -13,7 +13,7 @@ public class TestController {
     @GetMapping("/hello")
     public Map<String, String> sayHello() {
         Map<String, String> response = new HashMap<>();
-        response.put("message", "Hello from Slangify Backend!");
+        response.put("message", "Hello from Nroq Backend!");
         response.put("status", "Running");
         return response;
     }

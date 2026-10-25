@@ -16,4 +16,5 @@ public class BadgeRequestDTO {
     private Boolean hidden;
     private Boolean active;
     private Integer displayOrder;
+    private Long genreId;
 }

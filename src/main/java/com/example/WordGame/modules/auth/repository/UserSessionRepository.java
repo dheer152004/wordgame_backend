@@ -36,4 +36,8 @@ public interface UserSessionRepository extends JpaRepository<UserSession, UUID> 
             + "where session.user.id = :userId and session.revokedAt is null "
             + "and session.expiresAt > :revokedAt")
     int revokeAllActiveForUser(@Param("userId") Long userId, @Param("revokedAt") LocalDateTime revokedAt);
+
+    @Modifying
+    @Query("delete from UserSession session where session.user.id = :userId")
+    int deleteAllForUser(@Param("userId") Long userId);
 }

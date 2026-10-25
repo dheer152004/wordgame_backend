@@ -94,7 +94,7 @@ public class EmailService {
     public void sendEmailVerification(User user, String verificationUrl) {
         if (user == null || user.getEmail() == null || verificationUrl == null || verificationUrl.isBlank()) return;
         String body = String.format(
-                "<p>Hi <h4> %s </h4>,</p> \n<p>Thanks for signing up with WordGame.</p> \n<p>Please confirm your email address by clicking the link below:</p>\n<p><a href=\"%s\">Verify my email</a></p>\n<p>If you did not create this account, you can ignore this email.</p>",
+                "<p>Hi <h4>%s</h4>,</p> \n<p>Thanks for signing up with WordGame.</p> \n<p>Please confirm your email address by clicking the link below:</p>\n<p><a href=\"%s\">Verify my email</a></p>\n<p>If you did not create this account, you can ignore this email.</p>",
                 user.getUsername() != null ? user.getUsername() : "player",
                 verificationUrl);
         sendHtmlEmail(user.getEmail(), "Verify your WordGame email", body);
@@ -105,7 +105,7 @@ public class EmailService {
             return false;
         }
         String body = String.format(
-                "<p>Hi <h4> %s </h4>,</p> \n<p>Thanks for signing up with WordGame.</p> \n<p>Please confirm your email address by clicking the link below:</p>\n<p><a href=\"%s\">Verify my email</a></p>\n<p>If you did not create this account, you can ignore this email.</p>",
+                "<p>Hi <h4>%s</h4>,</p> \n<p>Thanks for signing up with WordGame.</p> \n<p>Please confirm your email address by clicking the link below:</p>\n<p><a href=\"%s\">Verify my email</a></p>\n<p>If you did not create this account, you can ignore this email.</p>",
                 user.getUsername() != null ? user.getUsername() : "player", verificationUrl);
         return sendHtmlEmailSynchronously(user.getEmail(), "Verify your WordGame email", body);
     }

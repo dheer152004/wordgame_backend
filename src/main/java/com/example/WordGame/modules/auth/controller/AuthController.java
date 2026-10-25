@@ -117,7 +117,7 @@ public class AuthController {
             String title = verified ? "Email verified" : "Verification failed";
             String heading = verified ? "Your email is verified" : "We could not verify your email";
             String message = verified
-                ? "Your WordGame account is ready. You can close this page and sign in."
+                ? "Your Nroq Game account is ready. You can close this page and sign in."
                 : "This verification link may be invalid, expired, or already used. Please request a new link.";
             String statusClass = verified ? "success" : "error";
             String icon = verified ? "&#10003;" : "!";
@@ -125,7 +125,7 @@ public class AuthController {
             String html = "<!doctype html>"
                 + "<html lang=\"en\"><head>"
                 + "<meta charset=\"UTF-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
-                + "<title>" + title + " | WordGame</title>"
+                + "<title>" + title + " | Nroq</title>"
                 + "<style>"
                 + "*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;"
                 + "font-family:Georgia,'Times New Roman',serif;background:#f3efe7;color:#20251f;padding:24px}"
@@ -138,7 +138,7 @@ public class AuthController {
                 + "font:700 12px/1 Arial,sans-serif;letter-spacing:2px;text-transform:uppercase;color:#758878;margin-bottom:28px}"
                 + "@media(max-width:480px){.panel{padding:38px 24px}}"
                 + "</style></head><body><main class=\"panel " + statusClass + "\">"
-                + "<div class=\"brand\">WordGame</div><div class=\"mark\">" + icon + "</div>"
+                + "<div class=\"brand\">Nroq</div><div class=\"mark\">" + icon + "</div>"
                 + "<h1>" + heading + "</h1><p>" + message + "</p>"
                 + "</main></body></html>";
 

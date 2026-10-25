@@ -2,14 +2,9 @@ package com.example.WordGame.Config;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
-import org.springframework.web.cors.CorsConfiguration;
-import org.springframework.web.cors.CorsConfigurationSource;
-import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -48,6 +43,7 @@ public class WebSecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         // Public endpoints - no authentication required
                         .requestMatchers("/api/auth/**").permitAll()  // Login, Register
+                        .requestMatchers("/api/test/**").permitAll()
                         .requestMatchers("/api/v1/login").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/app/version").permitAll()
                         .requestMatchers("/api/v1/admin/app-versions/**").hasRole("ADMIN")
@@ -112,27 +108,4 @@ public class WebSecurityConfig {
         return httpSecurity.build();
     }
 
-        @Bean
-        public CorsConfigurationSource corsConfigurationSource(
-                        @Value("${app.admin.allowed-origins:http://localhost:3000}") String allowedAdminOrigins) {
-                CorsConfiguration adminCors = new CorsConfiguration();
-                adminCors.setAllowedOrigins(java.util.Arrays.stream(allowedAdminOrigins.split(","))
-                                .map(String::trim)
-                                .filter(origin -> !origin.isEmpty())
-                                .toList());
-                adminCors.setAllowedMethods(java.util.List.of("GET", "POST", "PUT", "PATCH", "OPTIONS"));
-                adminCors.setAllowedHeaders(java.util.List.of(
-                                HttpHeaders.AUTHORIZATION, HttpHeaders.CONTENT_TYPE, "Idempotency-Key"));
-                adminCors.setMaxAge(3600L);
-
-                CorsConfiguration publicVersionCors = new CorsConfiguration();
-                publicVersionCors.setAllowedOriginPatterns(java.util.List.of("*"));
-                publicVersionCors.setAllowedMethods(java.util.List.of("GET"));
-                publicVersionCors.setAllowedHeaders(java.util.List.of("*"));
-
-                UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-                source.registerCorsConfiguration("/api/v1/admin/app-versions/**", adminCors);
-                source.registerCorsConfiguration("/api/v1/app/version", publicVersionCors);
-                return source;
-        }
 }
