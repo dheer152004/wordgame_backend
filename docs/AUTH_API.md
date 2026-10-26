@@ -83,6 +83,51 @@ curl -X POST {{base_url}}/api/auth/login \
 
 ---
 
+## Reset Password
+
+Password reset emails link to `GET /api/auth/reset-password?token=<token>`, which serves a browser form. The form submits the selected password to the existing API endpoint:
+
+POST /api/auth/reset-password
+
+Request JSON:
+```json
+{
+  "token": "<reset-token>",
+  "newPassword": "newsecret123"
+}
+```
+
+Success (200):
+```json
+{
+  "success": true,
+  "message": "Password updated successfully"
+}
+```
+
+---
+
+## Delete Profile
+
+DELETE /api/user/profile
+
+This endpoint requires a valid **access token** from the `token` field returned by login. Send it as a bearer token; a refresh token or a missing/expired token returns `401 Unauthorized`. No request body is required.
+
+Curl:
+```bash
+curl -X DELETE {{base_url}}/api/user/profile \
+  -H "Authorization: Bearer <access_token>"
+```
+
+Success (200):
+```json
+{
+  "message": "Profile deleted successfully"
+}
+```
+
+---
+
 ## Logout
 
 POST /api/auth/logout

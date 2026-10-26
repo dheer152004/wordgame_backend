@@ -151,6 +151,98 @@ public class AuthController {
         return ResponseEntity.ok(authService.forgotPassword(email));
     }
 
+    @GetMapping(value = "/reset-password", produces = MediaType.TEXT_HTML_VALUE)
+    public ResponseEntity<String> resetPasswordPage() {
+        String html = """
+                <!doctype html>
+                <html lang="en">
+                <head>
+                  <meta charset="UTF-8">
+                  <meta name="viewport" content="width=device-width, initial-scale=1">
+                  <title>Reset password | Nroq</title>
+                  <style>
+                    * { box-sizing: border-box; }
+                    body { margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 24px;
+                      font-family: Arial, sans-serif; background: #eef5ff; color: #17345f; }
+                    main { width: min(100%, 440px); padding: 36px; background: #fff;
+                      border: 1px solid #c7daf5; border-radius: 12px;
+                      box-shadow: 0 18px 50px rgba(32,87,156,.14); }
+                    h1 { margin: 0 0 10px; font: 500 30px Georgia, serif; color: #174ea6; }
+                    p { color: #526984; line-height: 1.5; }
+                    label { display: block; margin: 20px 0 6px; font-weight: 600; }
+                    input, button { width: 100%; padding: 12px; font: inherit; }
+                    input { border: 1px solid #b6cbea; border-radius: 6px; background: #fff; color: #17345f; }
+                    input:focus { outline: 2px solid #5b9cf0; outline-offset: 1px; }
+                    button { margin-top: 24px; border: 0; border-radius: 6px; background: #2166c2;
+                      color: #fff; font-weight: 600; cursor: pointer; }
+                    button:hover:not(:disabled) { background: #174ea6; }
+                    button:disabled { opacity: .65; cursor: wait; }
+                    #status { min-height: 24px; }
+                  </style>
+                </head>
+                <body>
+                  <main>
+                    <h1>Reset your password</h1>
+                    <p>Choose a new password for your Nroq account.</p>
+                    <form id="reset-form">
+                      <label for="new-password">New password</label>
+                      <input id="new-password" name="newPassword" type="password" minlength="6" maxlength="128"
+                        autocomplete="new-password" required>
+                      <label for="confirm-password">Confirm new password</label>
+                      <input id="confirm-password" type="password" minlength="6" maxlength="128"
+                        autocomplete="new-password" required>
+                      <button type="submit">Update password</button>
+                    </form>
+                    <p id="status" role="status" aria-live="polite"></p>
+                  </main>
+                  <script>
+                    const form = document.getElementById('reset-form');
+                    const statusMessage = document.getElementById('status');
+                    const token = new URLSearchParams(window.location.search).get('token');
+
+                    if (!token) {
+                      form.hidden = true;
+                      statusMessage.textContent = 'This password reset link is missing its token. Request a new link.';
+                    }
+
+                    form.addEventListener('submit', async (event) => {
+                      event.preventDefault();
+                      const newPassword = document.getElementById('new-password').value;
+                      const confirmPassword = document.getElementById('confirm-password').value;
+                      if (newPassword !== confirmPassword) {
+                        statusMessage.textContent = 'The passwords do not match.';
+                        return;
+                      }
+
+                      const button = form.querySelector('button');
+                      button.disabled = true;
+                      statusMessage.textContent = 'Updating your password...';
+                      try {
+                        const response = await fetch(window.location.pathname, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ token, newPassword })
+                        });
+                        const result = await response.json();
+                        if (!response.ok || result.success === false) {
+                          statusMessage.textContent = result.message || 'This reset link is invalid or expired.';
+                          return;
+                        }
+                        form.hidden = true;
+                        statusMessage.textContent = result.message || 'Your password has been updated.';
+                      } catch (error) {
+                        statusMessage.textContent = 'Unable to contact the server. Please try again.';
+                      } finally {
+                        button.disabled = false;
+                      }
+                    });
+                  </script>
+                </body>
+                </html>
+                """;
+        return ResponseEntity.ok().contentType(MediaType.TEXT_HTML).body(html);
+    }
+
     @PostMapping("/reset-password")
     public ResponseEntity<Map<String, Object>> resetPassword(@RequestBody Map<String, String> request) {
         String token = request != null ? request.get("token") : null;
