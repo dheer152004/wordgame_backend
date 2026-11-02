@@ -85,7 +85,7 @@ public class WordServiceImpl implements WordService {
         if (q == null || q.isBlank()) {
             return Page.empty(pageable);
         }
-        Page<Word> wordsPage = wordRepo.findByWordIgnoreCaseContaining(q.trim(), pageable);
+        Page<Word> wordsPage = wordRepo.findValidSearchResultsByWord(q.trim(), pageable);
         List<WordResponseDTO> dtos = wordsPage.getContent().stream().map(this::convertToResponseDTO).collect(Collectors.toList());
         return new PageImpl<>(dtos, pageable, wordsPage.getTotalElements());
     }
@@ -151,6 +151,7 @@ public class WordServiceImpl implements WordService {
 
         Word word = wordRepo.findById(wordId)
                 .orElseThrow(() -> new ResourceNotFoundExecption("word", "wordId", wordId));
+        validateRequiredMetadata(word);
 
         WordDetailResponseDTO responseDTO = new WordDetailResponseDTO();
         responseDTO.setId(word.getId());
@@ -200,6 +201,44 @@ public class WordServiceImpl implements WordService {
         responseDTO.setQuizModes(mapQuizModes(word.getQuizModes()));
 
         return responseDTO;
+    }
+
+    private void validateRequiredMetadata(Word word) {
+        List<String> missing = new ArrayList<>();
+        Language language = word.getLanguage();
+        if (language == null || language.getId() == null
+                || language.getCode() == null || language.getCode().isBlank()
+                || language.getName() == null || language.getName().isBlank()) {
+            missing.add("language");
+        }
+
+        Set<GrammarValue> grammarValues = word.getGrammarValues();
+        if (grammarValues == null || grammarValues.isEmpty()
+                || grammarValues.stream().anyMatch(value -> value == null
+                        || value.getGrammarCategory() == null
+                        || !hasDisplayValue(value.getGrammarCategory().getDisplayName(), value.getGrammarCategory().getName())
+                        || !hasDisplayValue(value.getDisplayName(), value.getName()))) {
+            missing.add("grammarValues");
+        }
+
+        Set<Category> categories = word.getCategories();
+        if (categories == null || categories.isEmpty()
+                || categories.stream().anyMatch(category -> category == null
+                        || category.getId() == null
+                        || category.getName() == null
+                        || category.getName().isBlank())) {
+            missing.add("categories");
+        }
+
+        if (!missing.isEmpty()) {
+            throw new ApiException("Word " + word.getId() + " is missing required data: "
+                    + String.join(", ", missing));
+        }
+    }
+
+    private boolean hasDisplayValue(String displayName, String fallbackName) {
+        String value = displayName != null ? displayName : fallbackName;
+        return value != null && !value.isBlank();
     }
 
     @Override
@@ -678,6 +717,7 @@ public class WordServiceImpl implements WordService {
     }
 
     private WordResponseDTO convertToResponseDTO(Word word) {
+        validateRequiredMetadata(word);
         log.info("🔁 convertToResponseDTO wordId={} quizModes={}", word.getId(), word.getQuizModes());
         WordResponseDTO responseDTO = new WordResponseDTO();
         responseDTO.setId(word.getId());

@@ -3,6 +3,9 @@ package com.example.WordGame.modules.words.service;
 import com.example.WordGame.Service.ImageStorageService;
 import com.example.WordGame.modules.category.Entities.Category;
 import com.example.WordGame.modules.category.repository.CategoryRepo;
+import com.example.WordGame.modules.GrammarCategories.entity.GrammarCategory;
+import com.example.WordGame.modules.GrammarValues.entity.GrammarValue;
+import com.example.WordGame.modules.language.entity.Language;
 import com.example.WordGame.modules.words.DTO.WordDetailResponseDTO;
 import com.example.WordGame.modules.words.DTO.WordCategoryDTO;
 import com.example.WordGame.modules.words.DTO.ImageUrlDTO;
@@ -11,6 +14,7 @@ import com.example.WordGame.modules.words.DTO.WordResponseDTO;
 import com.example.WordGame.modules.words.Entities.Word;
 import com.example.WordGame.modules.words.QuizMode;
 import com.example.WordGame.modules.words.repository.WordRepo;
+import com.example.WordGame.exceptions.ApiException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.modelmapper.ModelMapper;
@@ -27,9 +31,12 @@ import java.util.LinkedHashSet;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class WordServiceImplTest {
@@ -51,6 +58,18 @@ class WordServiceImplTest {
         savedWord.setId(1L);
         savedWord.setWord("serendipity");
         savedWord.setMeaning("A pleasant surprise");
+        savedWord.setLanguage(new Language(1L, "en", "English", null, null, true, null, true));
+        GrammarCategory grammarCategory = new GrammarCategory();
+        grammarCategory.setId(1L);
+        grammarCategory.setName("Part of speech");
+        GrammarValue grammarValue = new GrammarValue();
+        grammarValue.setId(1L);
+        grammarValue.setGrammarCategory(grammarCategory);
+        grammarValue.setName("Noun");
+        savedWord.setGrammarValues(new LinkedHashSet<>(Set.of(grammarValue)));
+        savedWord.setExpandedForm("Serendipity");
+        savedWord.setUsage("A fortunate discovery.");
+        savedWord.setEtymology("Coined in the 18th century.");
         savedWord.setCategories(new LinkedHashSet<>(Set.of(category)));
         savedWord.setQuizModes(Set.of(QuizMode.IMAGE, QuizMode.TEXT));
         savedWord.setCategoryDisplayOrder(1L, 10000L);
@@ -134,6 +153,18 @@ class WordServiceImplTest {
         word.setId(1L);
         word.setWord("serendipity");
         word.setMeaning("A pleasant surprise");
+        word.setLanguage(new Language(1L, "en", "English", null, null, true, null, true));
+        GrammarCategory grammarCategory = new GrammarCategory();
+        grammarCategory.setId(1L);
+        grammarCategory.setName("Part of speech");
+        GrammarValue grammarValue = new GrammarValue();
+        grammarValue.setId(1L);
+        grammarValue.setGrammarCategory(grammarCategory);
+        grammarValue.setName("Noun");
+        word.setGrammarValues(new LinkedHashSet<>(Set.of(grammarValue)));
+        word.setExpandedForm("Serendipity");
+        word.setUsage("A fortunate discovery.");
+        word.setEtymology("Coined in the 18th century.");
         word.setCategories(new LinkedHashSet<>(Set.of(category)));
         word.setQuizModes(Set.of(QuizMode.IMAGE, QuizMode.TEXT));
         word.setCategoryDisplayOrder(1L, 10000L);
@@ -190,6 +221,126 @@ class WordServiceImplTest {
     }
 
     @Test
+    void searchWordsShouldUseOnlyResultsWithRequiredMetadata() {
+        Word validWord = new Word();
+        validWord.setId(2L);
+        validWord.setWord("TCP");
+        validWord.setMeaning("Reliable communication protocol");
+        validWord.setLanguage(new Language(1L, "en", "English", null, null, true, null, true));
+
+        GrammarCategory grammarCategory = new GrammarCategory();
+        grammarCategory.setId(1L);
+        grammarCategory.setName("Tense");
+        GrammarValue grammarValue = new GrammarValue();
+        grammarValue.setId(1L);
+        grammarValue.setGrammarCategory(grammarCategory);
+        grammarValue.setName("Present");
+        validWord.setGrammarValues(new LinkedHashSet<>(Set.of(grammarValue)));
+        validWord.setExpandedForm("Transmission Control Protocol");
+        validWord.setUsage("Used for reliable communication between devices.");
+        validWord.setEtymology("Developed as part of TCP/IP.");
+
+        Category category = new Category();
+        category.setId(1L);
+        category.setName("Networking");
+        validWord.setCategories(new LinkedHashSet<>(Set.of(category)));
+
+        WordRepo wordRepo = mock(WordRepo.class);
+        PageRequest pageable = PageRequest.of(0, 10);
+        when(wordRepo.findValidSearchResultsByWord("TCP", pageable))
+                .thenReturn(new PageImpl<>(List.of(validWord), pageable, 1));
+
+        WordServiceImpl wordService = new WordServiceImpl(
+                wordRepo,
+                mock(CategoryRepo.class),
+                new ModelMapper(),
+                mock(ImageStorageService.class),
+                new ObjectMapper()
+        );
+
+        Page<WordResponseDTO> response = wordService.searchWords(" TCP ", pageable);
+
+        assertEquals(1, response.getTotalElements());
+        assertEquals(List.of(2L), response.getContent().stream().map(WordResponseDTO::getId).toList());
+        WordResponseDTO result = response.getContent().get(0);
+        assertEquals("en", result.getLanguage().getCode());
+        assertEquals(1, result.getGrammarValues().size());
+        assertEquals("Transmission Control Protocol", result.getWordDetails().getExpandedForm());
+        assertEquals(1, result.getCategories().size());
+        verify(wordRepo).findValidSearchResultsByWord("TCP", pageable);
+    }
+
+    @Test
+    void getWordByIdShouldRejectMissingLanguageAndGrammarValues() {
+        Word incompleteWord = new Word();
+        incompleteWord.setId(4L);
+        incompleteWord.setWord("TCP");
+        incompleteWord.setMeaning("Reliable communication protocol");
+
+        WordRepo wordRepo = mock(WordRepo.class);
+        when(wordRepo.findById(4L)).thenReturn(Optional.of(incompleteWord));
+        WordServiceImpl wordService = new WordServiceImpl(
+                wordRepo,
+                mock(CategoryRepo.class),
+                new ModelMapper(),
+                mock(ImageStorageService.class),
+                new ObjectMapper()
+        );
+
+        ApiException error = assertThrows(ApiException.class, () -> wordService.getWordById(4L));
+
+        assertTrue(error.getMessage().contains("language, grammarValues"));
+    }
+
+    @Test
+    void getWordDetailShouldAllowOptionalWordDetailsToBeMissing() throws Exception {
+        Word word = new Word();
+        word.setId(3L);
+        word.setWord("TCP");
+        word.setMeaning("Reliable communication protocol");
+        word.setLanguage(new Language(1L, "en", "English", null, null, true, null, true));
+
+        GrammarCategory grammarCategory = new GrammarCategory();
+        grammarCategory.setId(1L);
+        grammarCategory.setName("Tense");
+        GrammarValue grammarValue = new GrammarValue();
+        grammarValue.setId(1L);
+        grammarValue.setGrammarCategory(grammarCategory);
+        grammarValue.setName("Present");
+        word.setGrammarValues(new LinkedHashSet<>(Set.of(grammarValue)));
+
+        Category category = new Category();
+        category.setId(1L);
+        category.setName("Networking");
+        word.setCategories(new LinkedHashSet<>(Set.of(category)));
+
+        WordRepo wordRepo = mock(WordRepo.class);
+        when(wordRepo.findById(3L)).thenReturn(Optional.of(word));
+        WordServiceImpl wordService = new WordServiceImpl(
+                wordRepo,
+                mock(CategoryRepo.class),
+                new ModelMapper(),
+                mock(ImageStorageService.class),
+                new ObjectMapper()
+        );
+
+        WordDetailResponseDTO response = wordService.getWordDetail(3L);
+
+        assertNotNull(response);
+        assertNotNull(response.getLanguage());
+        assertEquals(1, response.getGrammarValues().size());
+        assertEquals(1, response.getCategories().size());
+        assertNotNull(response.getWordDetails());
+        assertEquals(null, response.getWordDetails().getExpandedForm());
+        assertEquals(null, response.getWordDetails().getUsage());
+        assertEquals(null, response.getWordDetails().getEtymology());
+        String json = new ObjectMapper().writeValueAsString(response);
+        org.junit.jupiter.api.Assertions.assertFalse(json.contains("\"expandedForm\""));
+        org.junit.jupiter.api.Assertions.assertFalse(json.contains("\"usage\""));
+        org.junit.jupiter.api.Assertions.assertFalse(json.contains("\"etymology\""));
+    }
+
+    @Test
     void getWordsByCategoryShouldAcceptNumericCategoryId() {
         Category category = new Category();
         category.setId(1L);
@@ -199,6 +350,18 @@ class WordServiceImplTest {
         word.setId(1L);
         word.setWord("serendipity");
         word.setMeaning("A pleasant surprise");
+        word.setLanguage(new Language(1L, "en", "English", null, null, true, null, true));
+        GrammarCategory grammarCategory = new GrammarCategory();
+        grammarCategory.setId(1L);
+        grammarCategory.setName("Part of speech");
+        GrammarValue grammarValue = new GrammarValue();
+        grammarValue.setId(1L);
+        grammarValue.setGrammarCategory(grammarCategory);
+        grammarValue.setName("Noun");
+        word.setGrammarValues(new LinkedHashSet<>(Set.of(grammarValue)));
+        word.setExpandedForm("Serendipity");
+        word.setUsage("A fortunate discovery.");
+        word.setEtymology("Coined in the 18th century.");
         word.setCategories(new LinkedHashSet<>(Set.of(category)));
         word.setCategoryDisplayOrder(1L, 10000L);
 

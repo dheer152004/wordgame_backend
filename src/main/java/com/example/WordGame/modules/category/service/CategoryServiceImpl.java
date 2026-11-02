@@ -51,6 +51,11 @@ public class CategoryServiceImpl implements CategoryService {
     }
 
     @Override
+    public Page<CategoryResponseDTO> getAllCategories(Pageable pageable) {
+        return categoryRepo.findAll(pageable).map(this::toResponseDto);
+    }
+
+    @Override
     public Page<CategoryResponseDTO> searchCategories(String q, Pageable pageable) {
         if (q == null || q.isBlank()) {
             return new PageImpl<>(List.of(), pageable, 0);

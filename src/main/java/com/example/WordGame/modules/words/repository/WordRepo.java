@@ -76,6 +76,19 @@ public interface WordRepo extends JpaRepository<Word, Long> {
     @Query(value = "SELECT * FROM words TABLESAMPLE SYSTEM(5) LIMIT :limit", nativeQuery = true)
     List<Word> findRandomWordsSampling(@Param("limit") int limit);
 
-    // Search by word (case-insensitive, partial match)
-    Page<Word> findByWordIgnoreCaseContaining(String word, Pageable pageable);
+    @Query(value = "SELECT w FROM Word w "
+            + "WHERE LOWER(w.word) LIKE LOWER(CONCAT('%', :word, '%')) "
+            + "AND w.language IS NOT NULL "
+            + "AND w.language.code IS NOT NULL AND TRIM(w.language.code) <> '' "
+            + "AND w.language.name IS NOT NULL AND TRIM(w.language.name) <> '' "
+            + "AND SIZE(w.grammarValues) > 0 "
+            + "AND SIZE(w.categories) > 0",
+            countQuery = "SELECT COUNT(w) FROM Word w "
+                    + "WHERE LOWER(w.word) LIKE LOWER(CONCAT('%', :word, '%')) "
+                    + "AND w.language IS NOT NULL "
+                    + "AND w.language.code IS NOT NULL AND TRIM(w.language.code) <> '' "
+                    + "AND w.language.name IS NOT NULL AND TRIM(w.language.name) <> '' "
+                    + "AND SIZE(w.grammarValues) > 0 "
+                    + "AND SIZE(w.categories) > 0")
+    Page<Word> findValidSearchResultsByWord(@Param("word") String word, Pageable pageable);
 }

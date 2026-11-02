@@ -7,10 +7,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -19,13 +19,27 @@ import java.util.Map;
 @CrossOrigin(origins = "*")
 public class CategoryController {
 
+    private static final int CATEGORIES_PAGE_SIZE = 10;
+
     private final CategoryService categoryService;
 
-    // GET /api/categories - Get all categories for user to choose
+    // GET /api/categories?page=0 - Get categories for user to choose
     @GetMapping
-    public ResponseEntity<List<CategoryResponseDTO>> getAllCategories() {
-        List<CategoryResponseDTO> categories = categoryService.getAllCategories();
-        return ResponseEntity.ok(categories);
+    public ResponseEntity<Map<String, Object>> getAllCategories(
+            @RequestParam(defaultValue = "0") int page) {
+
+        Pageable pageable = PageRequest.of(page, CATEGORIES_PAGE_SIZE, Sort.by("id").ascending());
+        Page<CategoryResponseDTO> categoriesPage = categoryService.getAllCategories(pageable);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("categories", categoriesPage.getContent());
+        response.put("currentPage", categoriesPage.getNumber());
+        response.put("totalPages", categoriesPage.getTotalPages());
+        response.put("totalCategories", categoriesPage.getTotalElements());
+        response.put("hasMore", categoriesPage.hasNext());
+        response.put("pageSize", categoriesPage.getSize());
+
+        return ResponseEntity.ok(response);
     }
 
     // GET /api/categories/search?q=ser&page=0&size=10
