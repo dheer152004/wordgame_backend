@@ -12,6 +12,7 @@ import com.example.WordGame.modules.category.CategoryDTO.CategoryUpdateDTO;
 public interface CategoryService {
     public List<CategoryResponseDTO> getAllCategories();
     public Page<CategoryResponseDTO> getAllCategories(Pageable pageable);
+    public Page<CategoryResponseDTO> getRandomCategories(String paginationToken, Pageable pageable);
     public Page<CategoryResponseDTO> searchCategories(String q, Pageable pageable);
     public CategoryResponseDTO toggleCategoryStatus(Long id);
     public void deleteCategory(Long id);

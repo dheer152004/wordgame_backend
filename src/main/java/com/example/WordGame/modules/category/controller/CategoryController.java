@@ -8,10 +8,15 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
+
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
+
 
 @RestController
 @RequestMapping(value = "/api/categories", produces = "application/json")
@@ -38,6 +43,36 @@ public class CategoryController {
         response.put("totalCategories", categoriesPage.getTotalElements());
         response.put("hasMore", categoriesPage.hasNext());
         response.put("pageSize", categoriesPage.getSize());
+
+        return ResponseEntity.ok(response);
+    }
+
+    // GET /api/categories/random?page=0 - Start a new randomized category sequence
+    @GetMapping("/random")
+    public ResponseEntity<Map<String, Object>> getRandomCategories(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(required = false) String paginationToken) {
+
+        if (page == 0) {
+            paginationToken = UUID.randomUUID().toString();
+        } else if (paginationToken == null || paginationToken.isBlank()) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "paginationToken is required for pages after page 0");
+        }
+
+        Pageable pageable = PageRequest.of(page, CATEGORIES_PAGE_SIZE);
+        Page<CategoryResponseDTO> categoriesPage =
+                categoryService.getRandomCategories(paginationToken, pageable);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("categories", categoriesPage.getContent());
+        response.put("currentPage", categoriesPage.getNumber());
+        response.put("totalPages", categoriesPage.getTotalPages());
+        response.put("totalCategories", categoriesPage.getTotalElements());
+        response.put("hasMore", categoriesPage.hasNext());
+        response.put("pageSize", categoriesPage.getSize());
+        response.put("paginationToken", paginationToken);
 
         return ResponseEntity.ok(response);
     }

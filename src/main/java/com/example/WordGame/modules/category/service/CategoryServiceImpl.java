@@ -14,20 +14,31 @@ import com.example.WordGame.modules.words.repository.WordRepo;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.Caching;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Random;
+import java.util.UUID;
 import java.util.stream.Collectors;
-import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
+import org.springframework.web.multipart.MultipartFile;
 
 @Service
 @RequiredArgsConstructor
@@ -39,6 +50,7 @@ public class CategoryServiceImpl implements CategoryService {
     private final WordRepo wordRepo;
     private final ModelMapper modelMapper;
     private final ImageStorageService imageUploadService;
+    private final CacheManager cacheManager;
 
     @Override
     @Cacheable(value = "categories", key = "'all'", unless = "#result == null")
@@ -53,6 +65,66 @@ public class CategoryServiceImpl implements CategoryService {
     @Override
     public Page<CategoryResponseDTO> getAllCategories(Pageable pageable) {
         return categoryRepo.findAll(pageable).map(this::toResponseDto);
+    }
+
+    @Override
+    public Page<CategoryResponseDTO> getRandomCategories(String paginationToken, Pageable pageable) {
+        if (paginationToken == null || paginationToken.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid paginationToken");
+        }
+
+        UUID tokenId;
+        try {
+            tokenId = UUID.fromString(paginationToken);
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid paginationToken");
+        }
+
+        Cache cache = cacheManager.getCache("randomCategories");
+        if (cache == null) {
+            throw new IllegalStateException("The randomCategories cache is not configured");
+        }
+
+        List<Long> categoryIds;
+        if (pageable.getPageNumber() == 0) {
+            categoryIds = new ArrayList<>(categoryRepo.findAllCategoryIds());
+            long seed = tokenId.getMostSignificantBits() ^ tokenId.getLeastSignificantBits();
+            Collections.shuffle(categoryIds, new Random(seed));
+            cache.put(paginationToken, categoryIds);
+        } else {
+            Object cachedIds = cache.get(paginationToken, Object.class);
+            if (!(cachedIds instanceof List<?> ids)) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST,
+                        "Invalid or expired paginationToken; start again from page 0");
+            }
+            categoryIds = ids.stream()
+                    .map(id -> {
+                        if (id instanceof Number number) {
+                            return number.longValue();
+                        }
+                        throw new IllegalStateException("Invalid category ID in random pagination cache");
+                    })
+                    .toList();
+        }
+
+        long offset = pageable.getOffset();
+        int start = offset >= categoryIds.size() ? categoryIds.size() : (int) offset;
+        int end = (int) Math.min(offset + pageable.getPageSize(), categoryIds.size());
+        List<Long> pageIds = categoryIds.subList(start, end);
+
+        Map<Long, Category> categoriesById = new HashMap<>();
+        for (Category category : categoryRepo.findAllById(pageIds)) {
+            categoriesById.put(category.getId(), category);
+        }
+
+        List<CategoryResponseDTO> content = pageIds.stream()
+                .map(categoriesById::get)
+                .filter(Objects::nonNull)
+                .map(this::toResponseDto)
+                .toList();
+
+        return new PageImpl<>(content, pageable, categoryIds.size());
     }
 
     @Override

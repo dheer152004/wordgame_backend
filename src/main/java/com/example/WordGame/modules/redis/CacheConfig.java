@@ -55,6 +55,11 @@ public class CacheConfig {
                         .entryTtl(Duration.ofMinutes(30))
                         .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(new GenericJackson2JsonRedisSerializer())));
 
+        cacheConfigurations.put("randomCategories",
+                RedisCacheConfiguration.defaultCacheConfig()
+                        .entryTtl(Duration.ofMinutes(30))
+                        .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(new GenericJackson2JsonRedisSerializer())));
+
         // Words feed - 5 minutes (frequent changes)
         cacheConfigurations.put("words",
                 RedisCacheConfiguration.defaultCacheConfig()
@@ -114,6 +119,7 @@ public class CacheConfig {
     private CacheManager simpleCacheManager() {
         ConcurrentMapCacheManager cacheManager = new ConcurrentMapCacheManager(
                 "categories",
+                "randomCategories",
                 "words",
                 "wordDetails",
                 "randomWords",

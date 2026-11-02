@@ -13,6 +13,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 import java.util.Map;
@@ -58,5 +59,43 @@ class CategoryControllerTest {
         assertEquals(1, pageable.getPageNumber());
         assertEquals(10, pageable.getPageSize());
         assertEquals(Sort.by("id").ascending(), pageable.getSort());
+    }
+
+    @Test
+    void randomCategoriesStartsANewSessionAndReturnsItsToken() {
+        CategoryResponseDTO category = new CategoryResponseDTO();
+        Pageable requestedPage = Pageable.ofSize(10);
+        Page<CategoryResponseDTO> categoriesPage =
+                new PageImpl<>(List.of(category), requestedPage, 21);
+        when(categoryService.getRandomCategories(any(String.class), any(Pageable.class)))
+                .thenReturn(categoriesPage);
+
+        ResponseEntity<Map<String, Object>> response =
+                categoryController.getRandomCategories(0, null);
+
+        Map<String, Object> body = response.getBody();
+        assertNotNull(body);
+        assertEquals(List.of(category), body.get("categories"));
+        assertEquals(0, body.get("currentPage"));
+        assertEquals(3, body.get("totalPages"));
+        assertEquals(21L, body.get("totalCategories"));
+        assertEquals(10, body.get("pageSize"));
+        assertNotNull(body.get("paginationToken"));
+
+        ArgumentCaptor<String> tokenCaptor = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+        verify(categoryService).getRandomCategories(tokenCaptor.capture(), pageableCaptor.capture());
+        assertEquals(10, pageableCaptor.getValue().getPageSize());
+        assertEquals(0, pageableCaptor.getValue().getPageNumber());
+        assertEquals(body.get("paginationToken"), tokenCaptor.getValue());
+    }
+
+    @Test
+    void randomCategoriesRequiresTokenOnSubsequentPages() {
+        ResponseStatusException exception = org.junit.jupiter.api.Assertions.assertThrows(
+                ResponseStatusException.class,
+                () -> categoryController.getRandomCategories(1, null));
+
+        assertEquals(400, exception.getStatusCode().value());
     }
 }
