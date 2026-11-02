@@ -22,15 +22,19 @@ import com.example.WordGame.modules.roles.user.profile.UserProfileRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.Caching;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
@@ -58,25 +62,76 @@ public class WordServiceImpl implements WordService {
     private LanguageRepository languageRepository;
     @Autowired
     private GrammarValueRepository grammarValueRepository;
+    @Autowired
+    private CacheManager cacheManager;
 
-    // ✅ ONLY ONE NEW METHOD - Random words with caching
     @Override
-    public Page<WordResponseDTO> getRandomWords(Pageable pageable) {
-        log.info("🎲 CACHE MISS - Fetching random words from DATABASE - Page: {}, Size: {}",
-                pageable.getPageNumber(), pageable.getPageSize());
+    public Page<WordResponseDTO> getRandomWords(String paginationToken, Pageable pageable) {
+        if (paginationToken == null || paginationToken.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid paginationToken");
+        }
 
-        // Get all words without category filter
-        Page<Word> wordsPage = wordRepo.findAllWords(pageable);
+        UUID tokenId;
+        try {
+            tokenId = UUID.fromString(paginationToken);
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid paginationToken");
+        }
 
-        // Convert to DTO
-        List<WordResponseDTO> dtos = wordsPage.getContent().stream()
+        Cache cache = cacheManager.getCache("randomWords");
+        if (cache == null) {
+            throw new IllegalStateException("The randomWords cache is not configured");
+        }
+
+        List<Long> wordIds;
+        if (pageable.getPageNumber() == 0) {
+            wordIds = new ArrayList<>(wordRepo.findAllWordIds());
+            long seed = tokenId.getMostSignificantBits() ^ tokenId.getLeastSignificantBits();
+            Collections.shuffle(wordIds, new Random(seed));
+            cache.put(paginationToken, Map.of(
+                    "pageSize", pageable.getPageSize(),
+                    "wordIds", wordIds));
+        } else {
+            Object cachedSession = cache.get(paginationToken, Object.class);
+            if (!(cachedSession instanceof Map<?, ?> session)
+                    || !(session.get("pageSize") instanceof Number cachedPageSize)
+                    || !(session.get("wordIds") instanceof List<?> cachedWordIds)) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST,
+                        "Invalid or expired paginationToken; start again from page 0");
+            }
+            if (cachedPageSize.intValue() != pageable.getPageSize()) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST,
+                        "Page size must remain the same for this paginationToken");
+            }
+            wordIds = cachedWordIds.stream()
+                    .map(id -> {
+                        if (id instanceof Number number) {
+                            return number.longValue();
+                        }
+                        throw new IllegalStateException("Invalid word ID in random pagination cache");
+                    })
+                    .toList();
+        }
+
+        long offset = pageable.getOffset();
+        int start = offset >= wordIds.size() ? wordIds.size() : (int) offset;
+        int end = (int) Math.min(offset + pageable.getPageSize(), wordIds.size());
+        List<Long> pageIds = wordIds.subList(start, end);
+
+        Map<Long, Word> wordsById = new HashMap<>();
+        for (Word word : wordRepo.findAllById(pageIds)) {
+            wordsById.put(word.getId(), word);
+        }
+
+        List<WordResponseDTO> content = pageIds.stream()
+                .map(wordsById::get)
+                .filter(Objects::nonNull)
                 .map(this::convertToResponseDTO)
                 .collect(Collectors.toList());
 
-        // Shuffle for randomness
-        Collections.shuffle(dtos);
-
-        return new PageImpl<>(dtos, pageable, wordsPage.getTotalElements());
+        return new PageImpl<>(content, pageable, wordIds.size());
     }
 
     @Override

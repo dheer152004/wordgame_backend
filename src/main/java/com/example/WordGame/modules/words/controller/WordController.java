@@ -8,12 +8,16 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
+
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 
 @RestController
 @RequestMapping(value = "/api/words", produces = "application/json")
@@ -53,14 +57,23 @@ public class WordController {
         return ResponseEntity.ok(wordDetail);
     }
 
-    // ✅ NEW API - Get random words without category (WITH CACHING)
+    // GET /api/words/random?page=0&size=10 - Start a randomized word sequence
     @GetMapping("/random")
     public ResponseEntity<Map<String, Object>> getRandomWords(
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) String paginationToken) {
+
+        if (page == 0) {
+            paginationToken = UUID.randomUUID().toString();
+        } else if (paginationToken == null || paginationToken.isBlank()) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "paginationToken is required for pages after page 0");
+        }
 
         Pageable pageable = PageRequest.of(page, size);
-        Page<WordResponseDTO> wordsPage = wordService.getRandomWords(pageable);
+        Page<WordResponseDTO> wordsPage = wordService.getRandomWords(paginationToken, pageable);
 
         Map<String, Object> response = new HashMap<>();
         response.put("words", wordsPage.getContent());
@@ -70,6 +83,7 @@ public class WordController {
         response.put("hasMore", wordsPage.hasNext());
         response.put("pageSize", wordsPage.getSize());
         response.put("isRandom", true);
+        response.put("paginationToken", paginationToken);
 
         return ResponseEntity.ok(response);
     }

@@ -60,6 +60,9 @@ public interface WordRepo extends JpaRepository<Word, Long> {
     @Query("SELECT w FROM Word w")
     Page<Word> findAllWords(Pageable pageable);
 
+    @Query("SELECT w.id FROM Word w")
+    List<Long> findAllWordIds();
+
     // Get total count of all words
     @Query("SELECT COUNT(w) FROM Word w")
     long getTotalWordCount();

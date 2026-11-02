@@ -27,8 +27,7 @@ public interface WordService {
     WordResponseDTO getWordResponseDTO(Long id);
 
 
-    // ✅ ONLY ONE NEW METHOD - Random words without category
-    Page<WordResponseDTO> getRandomWords(Pageable pageable);
+    Page<WordResponseDTO> getRandomWords(String paginationToken, Pageable pageable);
 
     // Search words by text (case-insensitive, partial match)
     Page<WordResponseDTO> searchWords(String q, Pageable pageable);
