@@ -8,7 +8,6 @@ import lombok.NoArgsConstructor;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 import java.util.List;
-import com.fasterxml.jackson.annotation.JsonProperty;
 
 @Data
 @Builder
@@ -23,6 +22,9 @@ public class WordResponseDTO {
     private List<WordGrammarValueResponseDTO> grammarValues;
     private WordDetailsRequestDTO wordDetails;
     private List<WordCategoryDTO> categories;
+    private Long redirectCategoryId;
+    private String redirectCategoryName;
+    private RedirectWebsiteDTO redirectWebsite;
     private String meaning;
     private List<ImageUrlDTO> images;
     private List<VideoUrlDTO> videos;
@@ -33,8 +35,6 @@ public class WordResponseDTO {
     private java.util.List<String> quizModes;
     private List<RelatedWord> relatedWordIds = new java.util.ArrayList<>();
     private List<AlsoAppearsIn> alsoAppearsIn = new java.util.ArrayList<>();
-    @JsonProperty("source&credits")
-    private SourceCreditsDTO sourceAndCredits;
     private String created;
     private String updated;
 

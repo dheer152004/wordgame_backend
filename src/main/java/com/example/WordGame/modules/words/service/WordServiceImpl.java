@@ -3,6 +3,7 @@ package com.example.WordGame.modules.words.service;
 // import com.example.WordGame.Entities.*;
 import com.example.WordGame.Service.ImageStorageService;
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.example.WordGame.exceptions.ApiException;
 import com.example.WordGame.exceptions.ResourceNotFoundExecption;
@@ -42,6 +43,8 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.function.Consumer;
+import java.util.function.Function;
 
 @Service
 @RequiredArgsConstructor
@@ -224,12 +227,12 @@ public class WordServiceImpl implements WordService {
             .map(category -> new WordCategoryDTO(category.getId(), category.getName(),
                 word.getCategoryDisplayOrder(category.getId())))
             .toList());
+        setRedirectCategory(responseDTO, word.getRedirectCategory());
         responseDTO.setMeaning(word.getMeaning());
         responseDTO.setDescription(word.getDescription());
-        responseDTO.setImages(toImageUrls(word.getImages()));
-        responseDTO.setVideos(toVideoUrls(word.getVideos()));
-        responseDTO.setAudios(toAudioUrls(word.getAudios()));
-        responseDTO.setSourceAndCredits(parseSourceCredits(word.getSourceCreditsJson()));
+        responseDTO.setImages(toImageUrls(word.getImagesJson()));
+        responseDTO.setVideos(toVideoUrls(word.getVideosJson()));
+        responseDTO.setAudios(toAudioUrls(word.getAudiosJson()));
         responseDTO.setFacts(parseFacts(word.getFactsJson()));
         responseDTO.setExamples(parseExamples(word.getExamplesJson()));
         responseDTO.setCreated(formatDateTime(word.getCreatedAt()));
@@ -339,13 +342,13 @@ public class WordServiceImpl implements WordService {
         if (request.getDescription() != null) {
             word.setDescription(request.getDescription());
         }
+        if (request.getRedirectCategory() != null) {
+            word.setRedirectCategory(resolveRedirectCategory(request.getRedirectCategory()));
+        }
 
         applyLanguageAndGrammarValues(word, request);
         applyWordDetails(word, request.getWordDetails());
 
-        if (request.getSourceAndCredits() != null) {
-            word.setSourceCreditsJson(serializeSourceCredits(request.getSourceAndCredits()));
-        }
         word.setCategories(new LinkedHashSet<>(categories));
         for (int index = 0; index < categories.size(); index++) {
             Category wordCategory = categories.get(index);
@@ -374,11 +377,6 @@ public class WordServiceImpl implements WordService {
         if (request.getRelatedWordIds() != null && !request.getRelatedWordIds().isEmpty()) {
             word.setRelatedWordIds(request.getRelatedWordIds());
         }
-        if (request.getSourceAndCredits() != null) {
-            word.setSourceCreditsJson(serializeSourceCredits(request.getSourceAndCredits()));
-        }
-
-
         // persistExamples(savedWord, resolveExamples(request));
 
         // handle related words
@@ -407,10 +405,12 @@ public class WordServiceImpl implements WordService {
 
         Word savedWord = wordRepo.save(word);
 
-        List<String> images = resolveImagesJson(request, savedWord.getWord(), savedWord.getId());
-        if (images != null) savedWord.setImages(images);
-        savedWord.setVideos(resolveVideoUrls(request, savedWord.getWord(), savedWord.getId()));
-        savedWord.setAudios(resolveAudioUrls(request, savedWord.getWord(), savedWord.getId()));
+        List<ImageUrlDTO> images = resolveImageMedia(request, savedWord.getWord(), savedWord.getId());
+        if (images != null) savedWord.setImagesJson(serializeMedia(images));
+        savedWord.setVideosJson(serializeMedia(
+                resolveVideoMedia(request, savedWord.getWord(), savedWord.getId())));
+        savedWord.setAudiosJson(serializeMedia(
+                resolveAudioMedia(request, savedWord.getWord(), savedWord.getId())));
         savedWord = wordRepo.save(savedWord);
 
         // build response DTO
@@ -465,6 +465,9 @@ public class WordServiceImpl implements WordService {
         if (request.getDescription() != null) {
             word.setDescription(request.getDescription());
         }
+        if (request.getRedirectCategory() != null) {
+            word.setRedirectCategory(resolveRedirectCategory(request.getRedirectCategory()));
+        }
 
         applyLanguageAndGrammarValues(word, request);
         applyWordDetails(word, request.getWordDetails());
@@ -504,18 +507,20 @@ public class WordServiceImpl implements WordService {
                     try { imageUploadService.deleteImage(old); } catch (Exception ignored) {}
                 }
             }
-            List<String> images = resolveImagesJson(request, word.getWord(), word.getId());
-            word.setImages(images);
+            List<ImageUrlDTO> images = resolveImageMedia(request, word.getWord(), word.getId());
+            word.setImagesJson(serializeMedia(images));
         }
         if ((request.getVideos() != null && !request.getVideos().isEmpty())
                 || (request.getWordVideos() != null && !request.getWordVideos().isEmpty())) {
             deleteMediaFiles(word.getVideos());
-            word.setVideos(resolveVideoUrls(request, word.getWord(), word.getId()));
+            word.setVideosJson(serializeMedia(
+                    resolveVideoMedia(request, word.getWord(), word.getId())));
         }
         if ((request.getAudios() != null && !request.getAudios().isEmpty())
                 || (request.getWordAudios() != null && !request.getWordAudios().isEmpty())) {
             deleteMediaFiles(word.getAudios());
-            word.setAudios(resolveAudioUrls(request, word.getWord(), word.getId()));
+            word.setAudiosJson(serializeMedia(
+                    resolveAudioMedia(request, word.getWord(), word.getId())));
         }
 
         if (request.getFacts() != null) {
@@ -790,17 +795,16 @@ public class WordServiceImpl implements WordService {
             .map(category -> new WordCategoryDTO(category.getId(), category.getName(),
                 word.getCategoryDisplayOrder(category.getId())))
             .toList());
+        setRedirectCategory(responseDTO, word.getRedirectCategory());
         responseDTO.setMeaning(word.getMeaning());
-        List<String> imgs = word.getImages();
-        responseDTO.setImages(toImageUrls(imgs));
-        responseDTO.setVideos(toVideoUrls(word.getVideos()));
-        responseDTO.setAudios(toAudioUrls(word.getAudios()));
+        responseDTO.setImages(toImageUrls(word.getImagesJson()));
+        responseDTO.setVideos(toVideoUrls(word.getVideosJson()));
+        responseDTO.setAudios(toAudioUrls(word.getAudiosJson()));
         responseDTO.setFacts(parseFacts(word.getFactsJson()));
         responseDTO.setExamples(parseExamples(word.getExamplesJson()));
         responseDTO.setCreated(formatDateTime(word.getCreatedAt()));
         responseDTO.setUpdated(formatDateTime(word.getUpdatedAt()));
         responseDTO.setDescription(word.getDescription());
-        responseDTO.setSourceAndCredits(parseSourceCredits(word.getSourceCreditsJson()));
 
         responseDTO.setQuizModes(mapQuizModes(word.getQuizModes()));
 
@@ -824,6 +828,25 @@ public class WordServiceImpl implements WordService {
 
         log.info("🔁 convertToResponseDTO returning quizModes={} for wordId={}", responseDTO.getQuizModes(), word.getId());
         return responseDTO;
+    }
+
+    private Category resolveRedirectCategory(Long categoryId) {
+        return categoryRepo.findById(categoryId)
+                .orElseThrow(() -> new ApiException("Category not found with id: " + categoryId));
+    }
+
+    private void setRedirectCategory(WordResponseDTO response, Category redirectCategory) {
+        if (redirectCategory != null) {
+            response.setRedirectCategoryId(redirectCategory.getId());
+            response.setRedirectCategoryName(redirectCategory.getName());
+        }
+    }
+
+    private void setRedirectCategory(WordDetailResponseDTO response, Category redirectCategory) {
+        if (redirectCategory != null) {
+            response.setRedirectCategoryId(redirectCategory.getId());
+            response.setRedirectCategoryName(redirectCategory.getName());
+        }
     }
 
     private void applyLanguageAndGrammarValues(Word word, WordRequestDTO request) {
@@ -887,8 +910,8 @@ public class WordServiceImpl implements WordService {
                 .toList();
     }
 
-    private List<String> resolveImagesJson(WordRequestDTO request, String resourceName, Long resourceId) {
-        List<String> urls = new ArrayList<>();
+    private List<ImageUrlDTO> resolveImageMedia(WordRequestDTO request, String resourceName, Long resourceId) {
+        List<ImageUrlDTO> media = new ArrayList<>();
         int mediaNumber = 1;
         if (request.getImages() != null && !request.getImages().isEmpty()) {
             for (ImageUrlDTO image : request.getImages()) {
@@ -896,9 +919,11 @@ public class WordServiceImpl implements WordService {
                     continue;
                 }
                 String imageUrl = image.getImageUrl();
-                urls.add(imageUrl.startsWith("data:")
+                image.setImageUrl(imageUrl.startsWith("data:")
                         ? uploadInlineImage(imageUrl, resourceName, resourceId, mediaNumber)
                         : imageUrl);
+                image.setCredits(normalizeCredits(image.getCredits()));
+                media.add(image);
                 mediaNumber++;
             }
         }
@@ -907,7 +932,7 @@ public class WordServiceImpl implements WordService {
                 if (mf != null && !mf.isEmpty()) {
                     try {
                         String u = imageUploadService.uploadMedia(mf, "word", "image/", resourceName, resourceId, mediaNumber++);
-                        urls.add(u);
+                        media.add(new ImageUrlDTO(u));
                     } catch (Exception e) {
                         throw new ApiException("Failed to upload image: " + e.getMessage());
                     }
@@ -915,8 +940,8 @@ public class WordServiceImpl implements WordService {
             }
         }
 
-        if (urls.isEmpty()) return null;
-        return urls;
+        if (media.isEmpty()) return null;
+        return media;
     }
 
     private String uploadInlineImage(String dataUri, String resourceName, Long resourceId, int mediaNumber) {
@@ -957,28 +982,36 @@ public class WordServiceImpl implements WordService {
         };
     }
 
-    private List<String> resolveVideoUrls(WordRequestDTO request, String resourceName, Long resourceId) {
-        List<String> urls = new ArrayList<>();
+    private List<VideoUrlDTO> resolveVideoMedia(WordRequestDTO request, String resourceName, Long resourceId) {
+        List<VideoUrlDTO> media = new ArrayList<>();
         if (request.getVideos() != null) {
-            request.getVideos().stream()
-                .map(VideoUrlDTO::getVideoUrl)
-                .filter(Objects::nonNull)
-                .forEach(urls::add);
+            for (VideoUrlDTO video : request.getVideos()) {
+                if (video != null && video.getVideoUrl() != null) {
+                    video.setCredits(normalizeCredits(video.getCredits()));
+                    media.add(video);
+                }
+            }
         }
+        List<String> urls = new ArrayList<>();
         uploadMediaFiles(request.getWordVideos(), "word", "video/", resourceName, resourceId, urls);
-        return urls;
+        urls.stream().map(VideoUrlDTO::new).forEach(media::add);
+        return media;
     }
 
-    private List<String> resolveAudioUrls(WordRequestDTO request, String resourceName, Long resourceId) {
-        List<String> urls = new ArrayList<>();
+    private List<AudioUrlDTO> resolveAudioMedia(WordRequestDTO request, String resourceName, Long resourceId) {
+        List<AudioUrlDTO> media = new ArrayList<>();
         if (request.getAudios() != null) {
-            request.getAudios().stream()
-                .map(AudioUrlDTO::getAudioUrl)
-                .filter(Objects::nonNull)
-                .forEach(urls::add);
+            for (AudioUrlDTO audio : request.getAudios()) {
+                if (audio != null && audio.getAudioUrl() != null) {
+                    audio.setCredits(normalizeCredits(audio.getCredits()));
+                    media.add(audio);
+                }
+            }
         }
+        List<String> urls = new ArrayList<>();
         uploadMediaFiles(request.getWordAudios(), "word", "audio/", resourceName, resourceId, urls);
-        return urls;
+        urls.stream().map(AudioUrlDTO::new).forEach(media::add);
+        return media;
     }
 
     private void uploadMediaFiles(List<org.springframework.web.multipart.MultipartFile> files,
@@ -1009,16 +1042,60 @@ public class WordServiceImpl implements WordService {
         }
     }
 
-    private List<ImageUrlDTO> toImageUrls(List<String> urls) {
-        return urls.stream().map(ImageUrlDTO::new).collect(Collectors.toList());
+    private List<ImageUrlDTO> toImageUrls(String mediaJson) {
+        return parseMedia(mediaJson, ImageUrlDTO.class, ImageUrlDTO::new,
+                image -> image.setCredits(normalizeCredits(image.getCredits())));
     }
 
-    private List<VideoUrlDTO> toVideoUrls(List<String> urls) {
-        return urls.stream().map(VideoUrlDTO::new).collect(Collectors.toList());
+    private List<VideoUrlDTO> toVideoUrls(String mediaJson) {
+        return parseMedia(mediaJson, VideoUrlDTO.class, VideoUrlDTO::new,
+                video -> video.setCredits(normalizeCredits(video.getCredits())));
     }
 
-    private List<AudioUrlDTO> toAudioUrls(List<String> urls) {
-        return urls.stream().map(AudioUrlDTO::new).collect(Collectors.toList());
+    private List<AudioUrlDTO> toAudioUrls(String mediaJson) {
+        return parseMedia(mediaJson, AudioUrlDTO.class, AudioUrlDTO::new,
+                audio -> audio.setCredits(normalizeCredits(audio.getCredits())));
+    }
+
+    private <T> List<T> parseMedia(String mediaJson, Class<T> mediaType,
+                                   Function<String, T> legacyMediaFactory, Consumer<T> normalize) {
+        if (mediaJson == null || mediaJson.isBlank()) {
+            return Collections.emptyList();
+        }
+
+        try {
+            JsonNode mediaArray = objectMapper.readTree(mediaJson);
+            if (!mediaArray.isArray()) {
+                return List.of(legacyMediaFactory.apply(mediaJson));
+            }
+
+            List<T> media = new ArrayList<>();
+            for (JsonNode entry : mediaArray) {
+                T item = entry.isTextual()
+                        ? legacyMediaFactory.apply(entry.asText())
+                        : entry.isObject() ? objectMapper.treeToValue(entry, mediaType) : null;
+                if (item != null) {
+                    normalize.accept(item);
+                    media.add(item);
+                }
+            }
+            return media;
+        } catch (Exception e) {
+            log.warn("Failed to parse stored {} media: {}", mediaType.getSimpleName(), e.getMessage());
+            return List.of(legacyMediaFactory.apply(mediaJson));
+        }
+    }
+
+    private String serializeMedia(List<?> media) {
+        try {
+            return objectMapper.writeValueAsString(media);
+        } catch (Exception e) {
+            throw new ApiException("Failed to serialize word media: " + e.getMessage());
+        }
+    }
+
+    private MediaCreditsDTO normalizeCredits(MediaCreditsDTO credits) {
+        return credits == null || credits.isEmpty() ? null : credits;
     }
 
     private Category resolveCategory(String categoryKey) {
@@ -1194,25 +1271,6 @@ public class WordServiceImpl implements WordService {
         } catch (Exception e) {
             log.warn("Failed to parse alsoAppearsIn JSON: {}", e.getMessage());
             return Collections.emptyList();
-        }
-    }
-
-    private String serializeSourceCredits(SourceCreditsDTO src) {
-        if (src == null) return null;
-        try {
-            return objectMapper.writeValueAsString(src);
-        } catch (Exception e) {
-            throw new ApiException("Failed to serialize source credits: " + e.getMessage());
-        }
-    }
-
-    private SourceCreditsDTO parseSourceCredits(String json) {
-        if (json == null || json.isBlank()) return null;
-        try {
-            return objectMapper.readValue(json, SourceCreditsDTO.class);
-        } catch (Exception e) {
-            log.warn("Failed to parse sourceCredits JSON: {}", e.getMessage());
-            return null;
         }
     }
 

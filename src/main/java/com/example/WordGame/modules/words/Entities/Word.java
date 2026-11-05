@@ -39,6 +39,10 @@ public class Word {
             inverseJoinColumns = @JoinColumn(name = "category_id"))
     private java.util.Set<Category> categories = new java.util.LinkedHashSet<>();
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "redirect_category_id")
+    private Category redirectCategory;
+
     @ElementCollection
     @CollectionTable(name = "word_category_display_orders", joinColumns = @JoinColumn(name = "word_id"))
     @MapKeyColumn(name = "category_id")
@@ -98,6 +102,9 @@ public class Word {
 
     @Column(name = "source_credits", columnDefinition = "TEXT")
     private String sourceCreditsJson;
+
+    @Column(name = "redirect_website", columnDefinition = "TEXT")
+    private String redirectWebsiteJson;
 
     @Column(name = "also_appears_in", columnDefinition = "TEXT")
     private String alsoAppearsInJson;

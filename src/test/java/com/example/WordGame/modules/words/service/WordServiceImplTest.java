@@ -9,6 +9,9 @@ import com.example.WordGame.modules.language.entity.Language;
 import com.example.WordGame.modules.words.DTO.WordDetailResponseDTO;
 import com.example.WordGame.modules.words.DTO.WordCategoryDTO;
 import com.example.WordGame.modules.words.DTO.ImageUrlDTO;
+import com.example.WordGame.modules.words.DTO.VideoUrlDTO;
+import com.example.WordGame.modules.words.DTO.AudioUrlDTO;
+import com.example.WordGame.modules.words.DTO.MediaCreditsDTO;
 import com.example.WordGame.modules.words.DTO.WordRequestDTO;
 import com.example.WordGame.modules.words.DTO.WordResponseDTO;
 import com.example.WordGame.modules.words.Entities.Word;
@@ -46,13 +49,26 @@ class WordServiceImplTest {
         Category category = new Category();
         category.setId(1L);
         category.setName("TOTOTP");
+        Category redirectCategory = new Category();
+        redirectCategory.setId(2L);
+        redirectCategory.setName("Networking");
 
         WordRequestDTO request = new WordRequestDTO();
         request.setWord("serendipity");
         request.setMeaning("A pleasant surprise");
         request.setCategories(List.of(new WordCategoryDTO(1L, null, null)));
+        request.setRedirectCategory(2L);
         request.setQuizModes(List.of("IMAGE", "TEXT"));
-        request.setImages(List.of(new ImageUrlDTO("data:image/jpeg;base64,aGVsbG8=")));
+        ImageUrlDTO imageWithCredits = new ImageUrlDTO("data:image/jpeg;base64,aGVsbG8=");
+        imageWithCredits.setCredits(new MediaCreditsDTO(
+                "John Doe", "Wikimedia Commons", "https://example.com/creator",
+                "CC BY-SA 4.0", "https://creativecommons.org/licenses/by-sa/4.0/",
+                true, "Image by John Doe"));
+        request.setImages(List.of(imageWithCredits, new ImageUrlDTO("https://example.com/no-credits.png")));
+        request.setVideos(List.of(new VideoUrlDTO("https://example.com/video.mp4",
+                new MediaCreditsDTO("Video Author", "Video Platform", null, null, null, null, null))));
+        request.setAudios(List.of(new AudioUrlDTO("https://example.com/audio.mp3",
+                new MediaCreditsDTO(null, null, null, "CC0", null, false, null))));
 
         Word savedWord = new Word();
         savedWord.setId(1L);
@@ -79,6 +95,7 @@ class WordServiceImplTest {
                 new Class<?>[]{WordRepo.class},
                 (proxy, method, args) -> {
                     if ("save".equals(method.getName())) {
+                        savedWord.setRedirectCategory(((Word) args[0]).getRedirectCategory());
                         return savedWord;
                     }
                     if ("findById".equals(method.getName())) {
@@ -105,7 +122,8 @@ class WordServiceImplTest {
                 new Class<?>[]{CategoryRepo.class},
                 (proxy, method, args) -> {
                     if ("findById".equals(method.getName())) {
-                        return Optional.of(category);
+                        Long categoryId = (Long) args[0];
+                        return Optional.of(categoryId.equals(2L) ? redirectCategory : category);
                     }
                     if (method.getReturnType().equals(Optional.class)) {
                         return Optional.empty();
@@ -138,13 +156,24 @@ class WordServiceImplTest {
         assertEquals(1L, response.getCategories().get(0).getCategoryId());
         assertEquals("TOTOTP", response.getCategories().get(0).getCategoryName());
         assertEquals(10000L, response.getCategories().get(0).getDisplayOrder());
+        assertEquals(2L, response.getRedirectCategoryId());
+        assertEquals("Networking", response.getRedirectCategoryName());
         assertEquals("https://wordgame-bucket.s3.ap-south-1.amazonaws.com/word/1.image.1.jpg",
             response.getImages().get(0).getImageUrl());
+        assertEquals("John Doe", response.getImages().get(0).getCredits().getAuthor());
+        assertEquals(2, response.getImages().size());
+        assertEquals(null, response.getImages().get(1).getCredits());
+        assertEquals("Video Author", response.getVideos().get(0).getCredits().getAuthor());
+        assertEquals("CC0", response.getAudios().get(0).getCredits().getLicense());
+        assertEquals(Boolean.FALSE, response.getAudios().get(0).getCredits().getAttributionRequired());
         assertEquals(response.getImages().get(0).getImageUrl(), savedWord.getImages().get(0));
+        String responseJson = new ObjectMapper().writeValueAsString(response);
+        org.junit.jupiter.api.Assertions.assertFalse(responseJson.contains("\"credits\":{}"));
+        org.junit.jupiter.api.Assertions.assertFalse(responseJson.contains("source&credits"));
     }
 
     @Test
-    void getWordDetailShouldIncludeCategoryName() {
+    void getWordDetailShouldIncludeCategoryName() throws Exception {
         Category category = new Category();
         category.setId(1L);
         category.setName("TOTOTP");
@@ -166,6 +195,12 @@ class WordServiceImplTest {
         word.setUsage("A fortunate discovery.");
         word.setEtymology("Coined in the 18th century.");
         word.setCategories(new LinkedHashSet<>(Set.of(category)));
+        word.setRedirectCategory(category);
+        word.setImagesJson("[\"https://example.com/legacy.png\","
+                + "{\"imageUrl\":\"https://example.com/modern.png\",\"credits\":{}}]");
+        word.setVideosJson("[{\"videoUrl\":\"https://example.com/video.mp4\","
+                + "\"credits\":{\"platform\":\"Video Platform\"}}]");
+        word.setAudiosJson("[\"https://example.com/audio.mp3\"]");
         word.setQuizModes(Set.of(QuizMode.IMAGE, QuizMode.TEXT));
         word.setCategoryDisplayOrder(1L, 10000L);
         word.setCreatedAt(LocalDateTime.now());
@@ -218,6 +253,15 @@ class WordServiceImplTest {
         assertNotNull(response);
         assertEquals("TOTOTP", response.getCategories().get(0).getCategoryName());
         assertEquals(1L, response.getCategories().get(0).getCategoryId());
+        assertEquals(1L, response.getRedirectCategoryId());
+        assertEquals("TOTOTP", response.getRedirectCategoryName());
+        assertEquals("https://example.com/legacy.png", response.getImages().get(0).getImageUrl());
+        assertEquals(null, response.getImages().get(0).getCredits());
+        assertEquals(null, response.getImages().get(1).getCredits());
+        assertEquals("Video Platform", response.getVideos().get(0).getCredits().getPlatform());
+        assertEquals("https://example.com/audio.mp3", response.getAudios().get(0).getAudioUrl());
+        String responseJson = new ObjectMapper().writeValueAsString(response);
+        org.junit.jupiter.api.Assertions.assertFalse(responseJson.contains("\"credits\":{}"));
     }
 
     @Test

@@ -20,10 +20,11 @@ public class WordDetailResponseDTO {
     private List<WordGrammarValueResponseDTO> grammarValues;
     private WordDetailsRequestDTO wordDetails;
     private List<WordCategoryDTO> categories;
+    private Long redirectCategoryId;
+    private String redirectCategoryName;
+    private RedirectWebsiteDTO redirectWebsite;
     private String meaning;
     private String description;
-    @com.fasterxml.jackson.annotation.JsonProperty("source&credits")
-    private com.example.WordGame.modules.words.DTO.SourceCreditsDTO sourceAndCredits;
     private List<ImageUrlDTO> images;
     private List<VideoUrlDTO> videos;
     private List<AudioUrlDTO> audios;

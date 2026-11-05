@@ -4,7 +4,6 @@ import lombok.Data;
 import org.springframework.web.multipart.MultipartFile;
 import java.util.List;
 import java.util.Map;
-import com.fasterxml.jackson.annotation.JsonProperty;
 // import com.example.WordGame.modules.words.PartOfSpeech;
 // import com.example.WordGame.modules.words.WordType;
 
@@ -15,6 +14,8 @@ public class WordRequestDTO {
     private String description;
     private Long languageId;
     private List<Long> grammarValueIds;
+    private Long redirectCategory;
+    private RedirectWebsiteDTO redirectWebsite;
     private WordDetailsRequestDTO wordDetails;
     private List<WordCategoryDTO> categories;
     private List<MultipartFile> wordImages;
@@ -29,6 +30,4 @@ public class WordRequestDTO {
     private List<Long> relatedWordIds;
     private List<String> quizModes;
     private List<Map<String, Long>> alsoAppearsIn;
-    @JsonProperty("source&credits")
-    private SourceCreditsDTO sourceAndCredits;
 }
